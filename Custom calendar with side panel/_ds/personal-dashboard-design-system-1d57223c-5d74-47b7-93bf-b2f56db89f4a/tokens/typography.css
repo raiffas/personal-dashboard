@@ -1,0 +1,13 @@
+:root{
+  --font-display:'Boogaloo',cursive;
+  --font-accent:'Caveat',cursive;
+  --font-ui:'Inter',sans-serif;
+
+  --text-hero:clamp(44px,8vw,72px);
+  --text-page-header:36px;
+  --text-accent:20px;
+  --text-date:22px;
+  --text-nav:15px;
+  --text-body:16px;
+  --text-label:13px;
+}

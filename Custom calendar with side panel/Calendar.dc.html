@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/personal-dashboard-design-system-1d57223c-5d74-47b7-93bf-b2f56db89f4a/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/personal-dashboard-design-system-1d57223c-5d74-47b7-93bf-b2f56db89f4a/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/personal-dashboard-design-system-1d57223c-5d74-47b7-93bf-b2f56db89f4a/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/personal-dashboard-design-system-1d57223c-5d74-47b7-93bf-b2f56db89f4a/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/personal-dashboard-design-system-1d57223c-5d74-47b7-93bf-b2f56db89f4a/styles.css">
+  <script src="_ds/personal-dashboard-design-system-1d57223c-5d74-47b7-93bf-b2f56db89f4a/_ds_bundle.js"></script>
+  <style>
+    body { margin: 0; }
+    a { color: var(--ink); }
+    a:hover { color: var(--ink); }
+    @keyframes panelIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+</helmet>
+
+<div data-mode="day" style="min-height:100vh;background:var(--bg);font-family:var(--font-ui);color:var(--text-primary);padding:40px 40px 56px;position:relative;box-sizing:border-box;">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px;">
+    <h1 style="font-family:var(--font-display);font-size:var(--text-page-header);margin:0;color:var(--headline-fill);text-shadow:2px 2px 0 var(--ink);">{{ monthLabel }}</h1>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button style="border:2px solid var(--ink);background:var(--paper);color:var(--text-primary);width:36px;height:36px;border-radius:var(--radius-sm);font-size:16px;cursor:pointer;box-shadow:0 0 0 var(--ink);transition:box-shadow .15s,transform .15s;" style-hover="box-shadow:2px 2px 0 var(--ink);transform:translate(-2px,-2px);" onClick="{{ prevMonth }}" aria-label="Previous month">‹</button>
+      <x-import component-from-global-scope="PersonalDashboardDesignSystem_1d5722.Button" onClick="{{ goToday }}" hint-size="auto,36px">today</x-import>
+      <button style="border:2px solid var(--ink);background:var(--paper);color:var(--text-primary);width:36px;height:36px;border-radius:var(--radius-sm);font-size:16px;cursor:pointer;box-shadow:0 0 0 var(--ink);transition:box-shadow .15s,transform .15s;" style-hover="box-shadow:2px 2px 0 var(--ink);transform:translate(-2px,-2px);" onClick="{{ nextMonth }}" aria-label="Next month">›</button>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:8px;">
+    <sc-for list="{{ weekdayLabels }}" as="wd" hint-placeholder-count="7">
+      <div style="text-align:center;font-size:var(--text-label);font-weight:600;letter-spacing:0.03em;color:var(--text-secondary);text-transform:lowercase;padding:4px 0;">{{ wd }}</div>
+    </sc-for>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;">
+    <sc-for list="{{ cells }}" as="cell" hint-placeholder-count="42">
+      <div
+        style="{{ cell.cellStyle }}"
+        onClick="{{ cell.onOpen }}"
+      >
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <span style="{{ cell.dayNumStyle }}">{{ cell.dayNum }}</span>
+          <sc-if value="{{ cell.hasJournal }}" hint-placeholder-val="{{ false }}">
+            <span title="journal entry" style="width:8px;height:8px;border-radius:50%;background:var(--arrow-pink);margin-top:3px;"></span>
+          </sc-if>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:auto;">
+          <sc-for list="{{ cell.dots }}" as="dot" hint-placeholder-count="0">
+            <span style="width:8px;height:8px;border-radius:999px;background:{{ dot.color }};display:inline-block;"></span>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(43,59,78,0.3);animation:fadeIn 0.15s ease;z-index:40;" onClick="{{ closePanel }}"></div>
+    <div style="position:fixed;top:0;right:0;height:100%;width:min(440px,100vw);background:var(--bg);box-shadow:var(--shadow-soft);z-index:41;overflow-y:auto;animation:panelIn 0.2s ease;padding:24px;display:flex;flex-direction:column;gap:24px;box-sizing:border-box;">
+
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div style="font-size:var(--text-label);color:var(--text-secondary);text-transform:lowercase;letter-spacing:0.04em;">{{ selectedWeekday }}</div>
+          <h2 style="font-family:var(--font-display);font-size:28px;margin:2px 0 0;color:var(--headline-fill);text-shadow:2px 2px 0 var(--ink);">{{ selectedDateLabel }}</h2>
+        </div>
+        <button onClick="{{ closePanel }}" aria-label="close" style="border:none;background:transparent;font-size:22px;cursor:pointer;color:var(--text-secondary);line-height:1;">×</button>
+      </div>
+
+      <div style="display:flex;justify-content:center;">
+        <x-import component-from-global-scope="PersonalDashboardDesignSystem_1d5722.PaperCard" hint-size="320px,auto">
+          <div style="font-family:var(--font-accent);font-size:var(--text-accent);color:var(--ink);margin-bottom:8px;">daily checkin</div>
+          <sc-if value="{{ journalEditing }}" hint-placeholder-val="{{ false }}">
+            <textarea
+              autoFocus="{{ true }}"
+              value="{{ journalText }}"
+              onChange="{{ onJournalChange }}"
+              onBlur="{{ stopJournalEditing }}"
+              placeholder="jot ur thoughts"
+              style="width:100%;min-height:100px;resize:vertical;border:none;background:transparent;outline:none;font-family:var(--font-ui);font-size:15px;color:var(--text-primary);box-sizing:border-box;"
+            ></textarea>
+          </sc-if>
+          <sc-if value="{{ journalViewing }}" hint-placeholder-val="{{ true }}">
+            <div onClick="{{ startJournalEditing }}" style="min-height:100px;font-family:var(--font-ui);font-size:15px;color:{{ journalPlaceholderColor }};cursor:text;">{{ journalPreview }}</div>
+          </sc-if>
+        </x-import>
+      </div>
+
+      <div>
+        <div style="font-size:var(--text-label);font-weight:600;color:var(--text-secondary);text-transform:lowercase;letter-spacing:0.03em;margin-bottom:8px;">events</div>
+        <sc-if value="{{ hasNoEvents }}" hint-placeholder-val="{{ false }}">
+          <x-import component-from-global-scope="PersonalDashboardDesignSystem_1d5722.EmptyState" hint-size="100%,auto">nothing here yet</x-import>
+        </sc-if>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <sc-for list="{{ dayEvents }}" as="ev" hint-placeholder-count="0">
+            <div style="background:var(--paper);border-radius:var(--radius-sm);overflow:hidden;">
+              <div style="padding:8px 12px;display:flex;gap:8px;align-items:center;cursor:pointer;" onClick="{{ ev.onToggle }}">
+                <span style="width:8px;height:8px;border-radius:999px;background:{{ ev.color }};flex-shrink:0;"></span>
+                <div style="flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;overflow:hidden;">
+                  <span style="font-weight:600;font-size:14px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ ev.title }}</span>
+                  <span style="font-size:12px;color:var(--text-secondary);white-space:nowrap;flex-shrink:0;">{{ ev.timeLabel }}</span>
+                  <sc-if value="{{ ev.hasLocation }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">· {{ ev.location }}</span>
+                  </sc-if>
+                </div>
+                <button onClick="{{ ev.onDelete }}" aria-label="delete event" style="border:none;background:transparent;color:var(--text-secondary);cursor:pointer;font-size:15px;line-height:1;flex-shrink:0;">×</button>
+              </div>
+              <sc-if value="{{ ev.expanded }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:0 12px 12px 28px;display:flex;flex-direction:column;gap:4px;">
+                  <div style="font-weight:600;font-size:14px;color:var(--text-primary);white-space:normal;word-break:break-word;">{{ ev.title }}</div>
+                  <div style="font-size:12px;color:var(--text-secondary);">{{ ev.timeLabel }}</div>
+                  <sc-if value="{{ ev.hasLocation }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-size:12px;color:var(--text-secondary);white-space:normal;word-break:break-word;">{{ ev.location }}</div>
+                  </sc-if>
+                  <sc-if value="{{ ev.editing }}" hint-placeholder-val="{{ false }}">
+                    <textarea
+                      autoFocus="{{ true }}"
+                      value="{{ ev.notes }}"
+                      onChange="{{ ev.onNotesChange }}"
+                      onBlur="{{ ev.onStopEditing }}"
+                      placeholder="jot a note for this event…"
+                      style="width:100%;min-height:56px;resize:vertical;border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:6px 8px;font-family:var(--font-ui);font-size:13px;color:var(--text-primary);background:var(--bg);box-sizing:border-box;"
+                    ></textarea>
+                  </sc-if>
+                  <sc-if value="{{ ev.viewing }}" hint-placeholder-val="{{ true }}">
+                    <div onClick="{{ ev.onStartEditing }}" style="min-height:32px;padding:6px 8px;background:var(--bg);border-radius:var(--radius-sm);font-size:13px;color:{{ ev.notesPlaceholderColor }};cursor:text;box-sizing:border-box;">{{ ev.notesPreview }}</div>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="background:var(--paper);border-radius:var(--radius-sm);padding:16px;display:flex;flex-direction:column;gap:12px;">
+        <div style="font-size:var(--text-label);font-weight:600;color:var(--text-secondary);text-transform:lowercase;letter-spacing:0.03em;">add event</div>
+
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:13px;color:var(--text-secondary);">Title</label>
+          <input type="text" value="{{ form.title }}" onChange="{{ onFieldChange('title') }}" placeholder="Event title" style="border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:8px 10px;font-family:var(--font-ui);font-size:14px;color:var(--text-primary);background:var(--bg);box-sizing:border-box;"></input>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer;color:var(--text-primary);">
+            <input type="checkbox" checked="{{ form.allDay }}" onChange="{{ onAllDayToggle }}"></input>
+            all day
+          </label>
+        </div>
+
+        <sc-if value="{{ form.showTimeFields }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;display:flex;flex-direction:column;gap:4px;">
+              <label style="font-size:13px;color:var(--text-secondary);">Start</label>
+              <input type="time" value="{{ form.start }}" onChange="{{ onFieldChange('start') }}" style="border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:8px 10px;font-family:var(--font-ui);font-size:14px;color:var(--text-primary);background:var(--bg);box-sizing:border-box;width:100%;"></input>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:4px;">
+              <label style="font-size:13px;color:var(--text-secondary);">End</label>
+              <input type="time" value="{{ form.end }}" onChange="{{ onFieldChange('end') }}" style="border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:8px 10px;font-family:var(--font-ui);font-size:14px;color:var(--text-primary);background:var(--bg);box-sizing:border-box;width:100%;"></input>
+            </div>
+          </div>
+        </sc-if>
+
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:13px;color:var(--text-secondary);">Location</label>
+          <input type="text" value="{{ form.location }}" onChange="{{ onFieldChange('location') }}" placeholder="Optional" style="border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:8px 10px;font-family:var(--font-ui);font-size:14px;color:var(--text-primary);background:var(--bg);box-sizing:border-box;"></input>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:13px;color:var(--text-secondary);">Notes</label>
+          <input type="text" value="{{ form.notes }}" onChange="{{ onFieldChange('notes') }}" placeholder="Optional" style="border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:8px 10px;font-family:var(--font-ui);font-size:14px;color:var(--text-primary);background:var(--bg);box-sizing:border-box;"></input>
+        </div>
+
+        <div>
+          <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:8px;">Label</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <sc-for list="{{ labelOptions }}" as="lbl" hint-placeholder-count="4">
+              <button
+                onClick="{{ lbl.onSelect }}"
+                style="{{ lbl.buttonStyle }}"
+              >
+                <span style="width:8px;height:8px;border-radius:999px;background:{{ lbl.color }};display:inline-block;"></span>
+                {{ lbl.name }}
+              </button>
+            </sc-for>
+            <button onClick="{{ toggleAddingLabel }}" style="border:1px dashed var(--text-secondary);background:transparent;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;color:var(--text-secondary);font-family:var(--font-ui);">+ new label</button>
+          </div>
+
+          <sc-if value="{{ addingLabel }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+              <input type="text" value="{{ newLabelName }}" onChange="{{ onNewLabelNameChange }}" placeholder="Label name" style="border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:8px 10px;font-family:var(--font-ui);font-size:14px;color:var(--text-primary);background:var(--bg);box-sizing:border-box;"></input>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <sc-for list="{{ swatchOptions }}" as="sw" hint-placeholder-count="6">
+                  <button onClick="{{ sw.onSelect }}" style="{{ sw.style }}" aria-label="choose color"></button>
+                </sc-for>
+              </div>
+              <x-import component-from-global-scope="PersonalDashboardDesignSystem_1d5722.Button" variant="secondary" onClick="{{ confirmNewLabel }}" hint-size="auto,24px" style="align-self:flex-start;">save label</x-import>
+            </div>
+          </sc-if>
+        </div>
+
+        <x-import component-from-global-scope="PersonalDashboardDesignSystem_1d5722.Button" onClick="{{ addEvent }}" disabled="{{ addDisabled }}" hint-size="100%,44px" style="width:100%;opacity:{{ addOpacity }};">add event</x-import>
+      </div>
+
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const WEEKDAY_LABELS = ['mon','tue','wed','thu','fri','sat','sun'];
+const WEEKDAY_FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const SWATCHES = ['#c67139', '#7a8a5e', '#6b8ba4', '#c99a3e', '#9b6b8c', '#b8695f'];
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function dateStr(y, m, d) { return `${y}-${pad(m + 1)}-${pad(d)}`; }
+function mdToHtml(src) {
+  if (!src) return '';
+  let esc = src.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  esc = esc
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const lines = esc.split('\n');
+  let html = '', inList = false;
+  for (const line of lines) {
+    const m = line.match(/^\s*[-*]\s+(.*)/);
+    if (m) {
+      if (!inList) { html += '<ul style="margin:4px 0 4px 18px;padding:0;">'; inList = true; }
+      html += `<li>${m[1]}</li>`;
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += line.trim() ? `<div>${line}</div>` : '<div style="height:6px;"></div>';
+    }
+  }
+  if (inList) html += '</ul>';
+  return html;
+}
+function fmtTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const ap = h >= 12 ? 'pm' : 'am';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${pad(m)}${ap}`;
+}
+
+class Component extends DCLogic {
+  state = {
+    year: 2026,
+    month: 7, // August (0-indexed)
+    selectedDate: null,
+    panelOpen: false,
+    addingLabel: false,
+    expandedEventId: null,
+    journalEditing: false,
+    editingNotesId: null,
+    newLabelName: '',
+    newLabelColor: SWATCHES[0],
+    form: { title: '', allDay: false, start: '09:00', end: '10:00', location: '', notes: '', labelId: null },
+    labels: [
+      { id: 'l1', name: 'Work', color: '#c67139' },
+      { id: 'l2', name: 'Personal', color: '#7a8a5e' },
+      { id: 'l3', name: 'Health', color: '#6b8ba4' },
+      { id: 'l4', name: 'Social', color: '#c99a3e' },
+    ],
+    events: [
+      { id: 'e1', date: '2026-08-03', title: 'Team standup', start: '09:00', end: '09:30', allDay: false, location: 'Zoom', notes: '', labelId: 'l1' },
+      { id: 'e2', date: '2026-08-03', title: 'Dentist appointment', start: '14:00', end: '15:00', allDay: false, location: 'Riverside Dental', notes: '', labelId: 'l3' },
+      { id: 'e3', date: '2026-08-07', title: "Mia's birthday dinner", start: '19:00', end: '21:00', allDay: false, location: 'Casa Luna', notes: 'Bring the wine', labelId: 'l4' },
+      { id: 'e4', date: '2026-08-10', title: 'Quarterly review', start: '11:00', end: '12:00', allDay: false, location: 'Conf Room B', notes: 'Bring Q3 numbers', labelId: 'l1' },
+      { id: 'e5', date: '2026-08-10', title: 'Run — 5 miles', start: '06:30', end: '07:15', allDay: false, location: '', notes: '', labelId: 'l3' },
+      { id: 'e6', date: '2026-08-12', title: 'Design offsite', start: null, end: null, allDay: true, location: 'Downtown studio', notes: '', labelId: 'l1' },
+      { id: 'e7', date: '2026-08-15', title: 'Farmers market', start: '10:00', end: '11:30', allDay: false, location: '', notes: '', labelId: 'l2' },
+      { id: 'e8', date: '2026-08-20', title: 'Book club', start: '18:30', end: '20:00', allDay: false, location: "Priya's place", notes: 'Finish ch. 12', labelId: 'l4' },
+      { id: 'e9', date: '2026-08-24', title: 'Flight to Denver', start: '07:20', end: '10:05', allDay: false, location: 'Gate C14', notes: '', labelId: 'l2' },
+      { id: 'e10', date: '2026-08-28', title: 'Performance check-in', start: '15:00', end: '15:30', allDay: false, location: '', notes: '', labelId: 'l1' },
+    ],
+    journal: {
+      '2026-08-03': "Slept badly, felt a bit foggy in the morning. Standup went fine though. Trying to drink more water today.",
+      '2026-08-08': "Long walk with Sam in the afternoon. Good mood overall, felt caught up on things for once.",
+      '2026-08-10': "Nervous about the review this morning but it went better than expected. Ran before work — legs felt heavy but got it done.",
+      '2026-08-15': "Slow Saturday. Farmers market was busy but nice. Cooked a big dinner, feeling relaxed.",
+    },
+  };
+
+  prevMonth = () => this.setState(s => {
+    const m = s.month - 1;
+    return m < 0 ? { month: 11, year: s.year - 1 } : { month: m };
+  });
+  nextMonth = () => this.setState(s => {
+    const m = s.month + 1;
+    return m > 11 ? { month: 0, year: s.year + 1 } : { month: m };
+  });
+  goToday = () => { const t = new Date(); this.setState({ year: t.getFullYear(), month: t.getMonth() }); };
+
+  openDay = (ds) => {
+    this.setState({
+      selectedDate: ds,
+      panelOpen: true,
+      addingLabel: false,
+      newLabelName: '',
+      journalEditing: false,
+      editingNotesId: null,
+      expandedEventId: null,
+      form: { title: '', allDay: false, start: '09:00', end: '10:00', location: '', notes: '', labelId: this.state.labels[0] ? this.state.labels[0].id : null },
+    });
+  };
+  closePanel = () => this.setState({ panelOpen: false });
+
+  onJournalChange = (e) => {
+    const v = e.target.value;
+    this.setState(s => ({ journal: { ...s.journal, [s.selectedDate]: v } }));
+  };
+
+  onFieldChange = (key) => (e) => {
+    const v = e.target.value;
+    this.setState(s => ({ form: { ...s.form, [key]: v } }));
+  };
+  onAllDayToggle = (e) => {
+    const checked = e.target.checked;
+    this.setState(s => ({ form: { ...s.form, allDay: checked } }));
+  };
+
+  toggleEventExpand = (id) => this.setState(s => ({ expandedEventId: s.expandedEventId === id ? null : id, editingNotesId: s.expandedEventId === id ? s.editingNotesId : null }));
+  updateEventNotes = (id, notes) => this.setState(s => ({ events: s.events.map(e => e.id === id ? { ...e, notes } : e) }));
+  startNotesEditing = (id) => this.setState({ editingNotesId: id });
+  stopNotesEditing = () => this.setState({ editingNotesId: null });
+
+  startJournalEditing = () => this.setState({ journalEditing: true });
+  stopJournalEditing = () => this.setState({ journalEditing: false });
+
+  selectLabel = (id) => this.setState(s => ({ form: { ...s.form, labelId: id } }));
+  toggleAddingLabel = () => this.setState(s => ({ addingLabel: !s.addingLabel, newLabelName: '', newLabelColor: SWATCHES[0] }));
+  onNewLabelNameChange = (e) => this.setState({ newLabelName: e.target.value });
+  selectSwatch = (color) => this.setState({ newLabelColor: color });
+  confirmNewLabel = () => {
+    const name = this.state.newLabelName.trim();
+    if (!name) return;
+    const id = 'l' + Date.now();
+    this.setState(s => ({
+      labels: [...s.labels, { id, name, color: s.newLabelColor }],
+      addingLabel: false,
+      newLabelName: '',
+      form: { ...s.form, labelId: id },
+    }));
+  };
+
+  addEvent = () => {
+    const { form, selectedDate } = this.state;
+    if (!form.title.trim()) return;
+    const id = 'e' + Date.now();
+    this.setState(s => ({
+      events: [...s.events, { id, date: selectedDate, title: form.title.trim(), start: form.allDay ? null : form.start, end: form.allDay ? null : form.end, allDay: form.allDay, location: form.location.trim(), notes: form.notes.trim(), labelId: form.labelId }],
+      form: { title: '', allDay: false, start: '09:00', end: '10:00', location: '', notes: '', labelId: form.labelId },
+    }));
+  };
+  deleteEvent = (id) => this.setState(s => ({ events: s.events.filter(e => e.id !== id) }));
+
+  renderVals() {
+    const { year, month, selectedDate, panelOpen, events, labels, journal, form, addingLabel, newLabelName, newLabelColor, expandedEventId, journalEditing, editingNotesId } = this.state;
+    const labelMap = {};
+    labels.forEach(l => { labelMap[l.id] = l; });
+
+    const firstOfMonth = new Date(year, month, 1);
+    const startOffset = (firstOfMonth.getDay() + 6) % 7; // Monday-first
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+    const todayStr = dateStr(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+    const cells = [];
+    const totalCells = 42;
+    for (let i = 0; i < totalCells; i++) {
+      let cellYear = year, cellMonth = month, dayNum, inMonth;
+      const idx = i - startOffset;
+      if (idx < 0) {
+        dayNum = daysInPrevMonth + idx + 1;
+        cellMonth = month - 1; cellYear = year;
+        if (cellMonth < 0) { cellMonth = 11; cellYear = year - 1; }
+        inMonth = false;
+      } else if (idx >= daysInMonth) {
+        dayNum = idx - daysInMonth + 1;
+        cellMonth = month + 1; cellYear = year;
+        if (cellMonth > 11) { cellMonth = 0; cellYear = year + 1; }
+        inMonth = false;
+      } else {
+        dayNum = idx + 1;
+        inMonth = true;
+      }
+      const ds = dateStr(cellYear, cellMonth, dayNum);
+      const isToday = ds === todayStr;
+      const dayEvs = events.filter(e => e.date === ds);
+      const seen = new Set();
+      const dots = [];
+      dayEvs.forEach(e => {
+        const l = labelMap[e.labelId];
+        const color = l ? l.color : '#a3a3a3';
+        if (!seen.has(color) && dots.length < 5) { seen.add(color); dots.push({ color }); }
+      });
+      const hasJournal = !!(journal[ds] && journal[ds].trim());
+
+      let bg = inMonth ? 'var(--paper)' : 'transparent';
+      let border = isToday ? '2px solid var(--ink)' : '1px solid transparent';
+      cells.push({
+        dateStr: ds,
+        dayNum,
+        hasJournal,
+        dots,
+        onOpen: inMonth ? () => this.openDay(ds) : undefined,
+        cellStyle: `min-height:104px;border-radius:var(--radius-sm);background:${bg};border:${border};padding:8px;display:flex;flex-direction:column;gap:6px;cursor:${inMonth ? 'pointer' : 'default'};transition:box-shadow .15s ease;`,
+        dayNumStyle: `font-size:15px;font-family:var(--font-ui);font-weight:${isToday ? '700' : '500'};color:${inMonth ? 'var(--text-primary)' : 'var(--text-muted)'};`,
+      });
+    }
+
+    let dayEvents = [], journalText = '', selectedDateLabel = '', selectedWeekday = '', labelOptions = [], hasNoEvents = true;
+    if (selectedDate) {
+      const [sy, sm, sd] = selectedDate.split('-').map(Number);
+      const d = new Date(sy, sm - 1, sd);
+      selectedWeekday = WEEKDAY_FULL[d.getDay()].toLowerCase();
+      selectedDateLabel = `${MONTH_NAMES[sm - 1].toLowerCase()} ${sd}`;
+      journalText = journal[selectedDate] || '';
+      dayEvents = events.filter(e => e.date === selectedDate).map(e => {
+        const l = labelMap[e.labelId];
+        return {
+          ...e,
+          color: l ? l.color : '#a3a3a3',
+          timeLabel: e.allDay ? 'all day' : `${fmtTime(e.start)} – ${fmtTime(e.end)}`,
+          hasLocation: !!e.location,
+          hasNotes: !!e.notes,
+          expanded: expandedEventId === e.id,
+          editing: editingNotesId === e.id,
+          viewing: editingNotesId !== e.id,
+          notesPlaceholderColor: (e.notes && e.notes.trim()) ? 'var(--text-primary)' : 'var(--text-secondary)',
+          notesPreview: React.createElement('div', { dangerouslySetInnerHTML: { __html: (e.notes && e.notes.trim()) ? mdToHtml(e.notes) : 'jot a note for this event…' } }),
+          onToggle: () => this.toggleEventExpand(e.id),
+          onNotesChange: (ev2) => this.updateEventNotes(e.id, ev2.target.value),
+          onStartEditing: (ev2) => { ev2.stopPropagation(); this.startNotesEditing(e.id); },
+          onStopEditing: () => this.stopNotesEditing(),
+          onDelete: (ev2) => { ev2.stopPropagation(); this.deleteEvent(e.id); },
+        };
+      });
+      hasNoEvents = dayEvents.length === 0;
+      labelOptions = labels.map(l => ({
+        ...l,
+        onSelect: () => this.selectLabel(l.id),
+        buttonStyle: `display:flex;align-items:center;gap:6px;border-radius:999px;padding:6px 12px;font-size:13px;font-family:var(--font-ui);cursor:pointer;border:1px solid ${form.labelId === l.id ? 'var(--ink)' : 'var(--hairline)'};background:${form.labelId === l.id ? 'var(--paper)' : 'var(--bg)'};color:var(--text-primary);`,
+      }));
+    }
+
+    const swatchOptions = SWATCHES.map(c => ({
+      color: c,
+      onSelect: () => this.selectSwatch(c),
+      style: `width:24px;height:24px;border-radius:999px;background:${c};border:${newLabelColor === c ? '2px solid var(--ink)' : '2px solid transparent'};cursor:pointer;padding:0;`,
+    }));
+
+    return {
+      monthLabel: `${MONTH_NAMES[month].toLowerCase()} ${year}`,
+      weekdayLabels: WEEKDAY_LABELS,
+      cells,
+      prevMonth: this.prevMonth,
+      nextMonth: this.nextMonth,
+      goToday: this.goToday,
+      panelOpen,
+      closePanel: this.closePanel,
+      selectedWeekday,
+      selectedDateLabel,
+      journalText,
+      journalEditing,
+      journalViewing: !journalEditing,
+      journalPlaceholderColor: (journalText && journalText.trim()) ? 'var(--text-primary)' : 'var(--text-secondary)',
+      journalPreview: React.createElement('div', { dangerouslySetInnerHTML: { __html: (journalText && journalText.trim()) ? mdToHtml(journalText) : 'jot ur thoughts' } }),
+      onJournalChange: this.onJournalChange,
+      startJournalEditing: this.startJournalEditing,
+      stopJournalEditing: this.stopJournalEditing,
+      dayEvents,
+      hasNoEvents,
+      form: { ...form, showTimeFields: !form.allDay },
+      onFieldChange: this.onFieldChange,
+      onAllDayToggle: this.onAllDayToggle,
+      labelOptions,
+      addingLabel,
+      newLabelName,
+      onNewLabelNameChange: this.onNewLabelNameChange,
+      swatchOptions,
+      toggleAddingLabel: this.toggleAddingLabel,
+      confirmNewLabel: this.confirmNewLabel,
+      addEvent: this.addEvent,
+      addDisabled: !form.title || !form.title.trim(),
+      addOpacity: (!form.title || !form.title.trim()) ? 0.5 : 1,
+    };
+  }
+}
+
+</script>
+</body>
+</html>
