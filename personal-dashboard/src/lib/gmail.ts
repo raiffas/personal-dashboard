@@ -156,21 +156,35 @@ function parseSender(fromHeader: string): string {
   return match ? match[1]!.trim() : fromHeader || "(unknown sender)";
 }
 
-async function gmailGet(path: string, accessToken: string): Promise<any> {
+async function gmailFetch(path: string, accessToken: string, init?: RequestInit): Promise<any> {
   const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me${path}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    ...init,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...init?.headers,
+    },
   });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Gmail API returned ${res.status}: ${text}`);
   }
+  if (res.status === 204) return null;
   return res.json();
+}
+
+async function gmailGet(path: string, accessToken: string): Promise<any> {
+  return gmailFetch(path, accessToken);
+}
+
+async function gmailPost(path: string, accessToken: string, body?: unknown): Promise<any> {
+  return gmailFetch(path, accessToken, { method: "POST", body: body ? JSON.stringify(body) : undefined });
 }
 
 export async function listUnreadMessages(maxResults = 50): Promise<UnreadMessage[]> {
   const accessToken = await getValidAccessToken();
 
-  const listData = await gmailGet(`/messages?q=is:unread&maxResults=${maxResults}`, accessToken);
+  const listData = await gmailGet(`/messages?q=${encodeURIComponent("is:unread in:inbox")}&maxResults=${maxResults}`, accessToken);
   const ids: string[] = (listData.messages ?? []).map((m: { id: string }) => m.id);
   if (ids.length === 0) return [];
 
@@ -189,4 +203,43 @@ export async function listUnreadMessages(maxResults = 50): Promise<UnreadMessage
   });
 
   return messages.sort((a, b) => b.receivedAt - a.receivedAt);
+}
+
+async function modifyMessage(id: string, changes: { add?: string[]; remove?: string[] }): Promise<void> {
+  const accessToken = await getValidAccessToken();
+  await gmailPost(`/messages/${id}/modify`, accessToken, {
+    addLabelIds: changes.add ?? [],
+    removeLabelIds: changes.remove ?? [],
+  });
+}
+
+export async function archiveMessage(id: string): Promise<void> {
+  await modifyMessage(id, { remove: ["INBOX", "UNREAD"] });
+}
+
+export async function trashMessage(id: string): Promise<void> {
+  await modifyMessage(id, { remove: ["UNREAD"] });
+  const accessToken = await getValidAccessToken();
+  await gmailPost(`/messages/${id}/trash`, accessToken);
+}
+
+type GmailLabel = { id: string; name: string };
+
+async function getOrCreateLabelId(labelName: string, accessToken: string): Promise<string> {
+  const { labels } = (await gmailGet("/labels", accessToken)) as { labels: GmailLabel[] };
+  const existing = labels.find((l) => l.name === labelName);
+  if (existing) return existing.id;
+
+  const created = (await gmailPost("/labels", accessToken, {
+    name: labelName,
+    labelListVisibility: "labelShow",
+    messageListVisibility: "show",
+  })) as GmailLabel;
+  return created.id;
+}
+
+export async function moveMessageToLabel(id: string, labelName: string): Promise<void> {
+  const accessToken = await getValidAccessToken();
+  const labelId = await getOrCreateLabelId(labelName, accessToken);
+  await modifyMessage(id, { add: [labelId], remove: ["INBOX"] });
 }

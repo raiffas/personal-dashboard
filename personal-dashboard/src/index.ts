@@ -1,9 +1,29 @@
 import { serve } from "bun";
 import index from "./index.html";
-import { GmailAuthError, getUnreadCount, listUnreadMessages } from "./lib/gmail";
+import {
+  GmailAuthError,
+  archiveMessage,
+  getUnreadCount,
+  listUnreadMessages,
+  moveMessageToLabel,
+  trashMessage,
+} from "./lib/gmail";
 
 const MAX_MESSAGES_LIMIT = 100;
 const DEFAULT_MESSAGES_LIMIT = 50;
+
+async function handleGmailAction(action: () => Promise<void>): Promise<Response> {
+  try {
+    await action();
+    return Response.json({ ok: true });
+  } catch (err) {
+    if (err instanceof GmailAuthError) {
+      return Response.json({ error: err.message }, { status: 401 });
+    }
+    console.error("Gmail action failed:", err);
+    return Response.json({ error: "Gmail action failed" }, { status: 502 });
+  }
+}
 
 const server = serve({
   routes: {
@@ -42,6 +62,29 @@ const server = serve({
           console.error("Failed to fetch Gmail messages:", err);
           return Response.json({ error: "Failed to fetch messages" }, { status: 502 });
         }
+      },
+    },
+
+    "/api/gmail/messages/:id/archive": {
+      async POST(req) {
+        return handleGmailAction(() => archiveMessage(req.params.id));
+      },
+    },
+
+    "/api/gmail/messages/:id/trash": {
+      async POST(req) {
+        return handleGmailAction(() => trashMessage(req.params.id));
+      },
+    },
+
+    "/api/gmail/messages/:id/label": {
+      async POST(req) {
+        const body = await req.json().catch(() => null);
+        const label = body?.label;
+        if (typeof label !== "string" || !label.trim()) {
+          return Response.json({ error: "Missing label" }, { status: 400 });
+        }
+        return handleGmailAction(() => moveMessageToLabel(req.params.id, label));
       },
     },
 

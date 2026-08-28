@@ -35,6 +35,30 @@ function initialsFor(sender: string): string {
     .slice(0, 2);
 }
 
+async function extractError(res: Response): Promise<string> {
+  const data = await res.json().catch(() => ({}));
+  return data.error ?? "Action failed";
+}
+
+const ACTIONS = {
+  archive: {
+    request: (email: Email) => fetch(`/api/gmail/messages/${email.id}/archive`, { method: "POST" }),
+  },
+  trash: {
+    request: (email: Email) => fetch(`/api/gmail/messages/${email.id}/trash`, { method: "POST" }),
+  },
+  label: {
+    request: (email: Email) =>
+      fetch(`/api/gmail/messages/${email.id}/label`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: "Action Required" }),
+      }),
+  },
+} as const;
+
+type ActionKind = keyof typeof ACTIONS;
+
 const InboxPage = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
@@ -42,25 +66,24 @@ const InboxPage = () => {
   const [emails, setEmails] = useState<Email[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  function refreshUnreadCount() {
     fetch("/api/gmail/unread-count")
       .then(async (res) => {
         const data = await res.json();
-        if (cancelled) return;
         if (!res.ok) {
           setUnreadError(data.error ?? "Failed to load unread count");
           return;
         }
+        setUnreadError(null);
         setUnreadCount(data.count);
       })
-      .catch(() => {
-        if (!cancelled) setUnreadError("Failed to load unread count");
-      });
-    return () => {
-      cancelled = true;
-    };
+      .catch(() => setUnreadError("Failed to load unread count"));
+  }
+
+  useEffect(() => {
+    refreshUnreadCount();
   }, []);
 
   useEffect(() => {
@@ -86,6 +109,24 @@ const InboxPage = () => {
     };
   }, []);
 
+  function performAction(email: Email, request: () => Promise<Response>) {
+    setEmails((es) => es.filter((e) => e.id !== email.id));
+    setActionError(null);
+    request()
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await extractError(res));
+        refreshUnreadCount();
+      })
+      .catch((err) => {
+        setEmails((es) => [...es, email].sort((a, b) => b.receivedAt - a.receivedAt));
+        setActionError(err instanceof Error ? err.message : "Action failed");
+      });
+  }
+
+  function runAction(kind: ActionKind, email: Email) {
+    performAction(email, () => ACTIONS[kind].request(email));
+  }
+
   const unreadLabel = unreadError ? unreadError : unreadCount === null ? "loading…" : `${unreadCount} unread`;
 
   const categories = CATS.map((c) => {
@@ -107,6 +148,11 @@ const InboxPage = () => {
         <div className="iz-header-title-group">
           <span className="iz-title">clear inbox, clear mind</span>
           <span className="iz-unread-count">{unreadLabel}</span>
+          {actionError && (
+            <span className="iz-unread-count" style={{ color: "var(--arrow-pink)" }}>
+              {actionError}
+            </span>
+          )}
         </div>
       </div>
 
@@ -176,6 +222,25 @@ const InboxPage = () => {
               </div>
 
               <div className="iz-row-actions">
+                <button onClick={() => runAction("archive", em)} title="Archive" className="iz-icon-btn">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <rect x="3" y="4" width="18" height="4" rx="1.5"></rect>
+                    <path d="M5 8h14v11a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 015 19V8z"></path>
+                    <path d="M10 12.5h4"></path>
+                  </svg>
+                </button>
+                <button onClick={() => runAction("label", em)} title="Move to Action Required" className="iz-icon-btn">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M3 7a1 1 0 011-1h5l2 2h9a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V7z"></path>
+                  </svg>
+                </button>
+                <button onClick={() => runAction("trash", em)} title="Delete" className="iz-icon-btn">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M4 7h16"></path>
+                    <path d="M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2"></path>
+                    <path d="M6 7l1 13a1 1 0 001 1h8a1 1 0 001-1l1-13"></path>
+                  </svg>
+                </button>
                 <a href={em.gmailUrl} target="_blank" rel="noopener" title="Open in Gmail" className="iz-icon-btn">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"></path>
