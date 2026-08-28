@@ -124,3 +124,69 @@ export async function getUnreadCount(): Promise<number> {
   const data = (await res.json()) as { messagesUnread: number };
   return data.messagesUnread;
 }
+
+export type UnreadMessage = {
+  id: string;
+  sender: string;
+  subject: string;
+  snippet: string;
+  receivedAt: number;
+  gmailUrl: string;
+};
+
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]!);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
+function headerValue(headers: { name: string; value: string }[], name: string): string {
+  return headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? "";
+}
+
+function parseSender(fromHeader: string): string {
+  const match = fromHeader.match(/^"?([^"<]+?)"?\s*<[^>]+>$/);
+  return match ? match[1]!.trim() : fromHeader || "(unknown sender)";
+}
+
+async function gmailGet(path: string, accessToken: string): Promise<any> {
+  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me${path}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Gmail API returned ${res.status}: ${text}`);
+  }
+  return res.json();
+}
+
+export async function listUnreadMessages(maxResults = 50): Promise<UnreadMessage[]> {
+  const accessToken = await getValidAccessToken();
+
+  const listData = await gmailGet(`/messages?q=is:unread&maxResults=${maxResults}`, accessToken);
+  const ids: string[] = (listData.messages ?? []).map((m: { id: string }) => m.id);
+  if (ids.length === 0) return [];
+
+  const metadataParams = "format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date";
+  const messages = await mapWithConcurrency(ids, 8, async (id) => {
+    const data = await gmailGet(`/messages/${id}?${metadataParams}`, accessToken);
+    const headers = (data.payload?.headers ?? []) as { name: string; value: string }[];
+    return {
+      id,
+      sender: parseSender(headerValue(headers, "From")),
+      subject: headerValue(headers, "Subject") || "(no subject)",
+      snippet: data.snippet ?? "",
+      receivedAt: Number(data.internalDate) || 0,
+      gmailUrl: `https://mail.google.com/mail/u/0/#inbox/${id}`,
+    } satisfies UnreadMessage;
+  });
+
+  return messages.sort((a, b) => b.receivedAt - a.receivedAt);
+}

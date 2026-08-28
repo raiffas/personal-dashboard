@@ -1,6 +1,9 @@
 import { serve } from "bun";
 import index from "./index.html";
-import { GmailAuthError, getUnreadCount } from "./lib/gmail";
+import { GmailAuthError, getUnreadCount, listUnreadMessages } from "./lib/gmail";
+
+const MAX_MESSAGES_LIMIT = 100;
+const DEFAULT_MESSAGES_LIMIT = 50;
 
 const server = serve({
   routes: {
@@ -18,6 +21,26 @@ const server = serve({
           }
           console.error("Failed to fetch Gmail unread count:", err);
           return Response.json({ error: "Failed to fetch unread count" }, { status: 502 });
+        }
+      },
+    },
+
+    "/api/gmail/messages": {
+      async GET(req) {
+        const url = new URL(req.url);
+        const requested = Number(url.searchParams.get("maxResults"));
+        const maxResults = Number.isFinite(requested) && requested > 0
+          ? Math.min(requested, MAX_MESSAGES_LIMIT)
+          : DEFAULT_MESSAGES_LIMIT;
+        try {
+          const messages = await listUnreadMessages(maxResults);
+          return Response.json({ messages });
+        } catch (err) {
+          if (err instanceof GmailAuthError) {
+            return Response.json({ error: err.message }, { status: 401 });
+          }
+          console.error("Failed to fetch Gmail messages:", err);
+          return Response.json({ error: "Failed to fetch messages" }, { status: 502 });
         }
       },
     },
