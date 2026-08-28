@@ -22,11 +22,18 @@ const GOOD_CURVE_MAX_LIFT = 0.3; // em the center letters rise above the outer o
 const goodLetters = makeArchedLetters(GOOD_TEXT, GOOD_CURVE_MAX_ROTATION, GOOD_CURVE_MAX_LIFT);
 
 const MORNING_TEXT = "morning!";
+const NIGHT_TEXT = "night!";
 const MORNING_CURVE_MAX_ROTATION = 4; // degrees the outermost letters tilt (0 = flat)
 const MORNING_CURVE_MAX_LIFT = 0.12; // em the center letters rise above the outer ones (0 = flat)
-const morningLetters = makeArchedLetters(MORNING_TEXT, MORNING_CURVE_MAX_ROTATION, MORNING_CURVE_MAX_LIFT);
 
-const HomePage = () => {
+type HomePageProps = {
+  mode: "day" | "night";
+};
+
+const HomePage = ({ mode }: HomePageProps) => {
+  const secondWordText = mode === "night" ? NIGHT_TEXT : MORNING_TEXT;
+  const morningLetters = makeArchedLetters(secondWordText, MORNING_CURVE_MAX_ROTATION, MORNING_CURVE_MAX_LIFT);
+
   const dateText = new Date()
     .toLocaleDateString("en-US", {
       weekday: "long",
@@ -39,7 +46,7 @@ const HomePage = () => {
 
   return (
     <div className="home-page">
-      <div className="orb-container" role="heading" aria-level={1} aria-label="good morning!">
+      <div className="orb-container" role="heading" aria-level={1} aria-label={`good ${secondWordText}`}>
         <img src={sun} alt="" className="orb" />
 
         <div className="good-headline-wrapper">

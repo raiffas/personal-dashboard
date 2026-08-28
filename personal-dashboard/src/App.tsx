@@ -15,7 +15,9 @@ export function App() {
     <div data-mode={mode}>
       <NavBar mode={mode} onToggleMode={() => setMode(m => (m === "day" ? "night" : "day"))} />
       <Switch>
-        <Route path="/" component={HomePage} />
+        <Route path="/">
+          <HomePage mode={mode} />
+        </Route>
         <Route path="/inbox" component={InboxPage} />
         <Route path="/calendar" component={CalendarPage} />
       </Switch>
