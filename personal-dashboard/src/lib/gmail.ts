@@ -225,17 +225,39 @@ export async function trashMessage(id: string): Promise<void> {
 
 type GmailLabel = { id: string; name: string };
 
-async function getOrCreateLabelId(labelName: string, accessToken: string): Promise<string> {
-  const { labels } = (await gmailGet("/labels", accessToken)) as { labels: GmailLabel[] };
-  const existing = labels.find((l) => l.name === labelName);
-  if (existing) return existing.id;
+const labelIdCache = new Map<string, string>();
+const labelIdInFlight = new Map<string, Promise<string>>();
 
-  const created = (await gmailPost("/labels", accessToken, {
-    name: labelName,
-    labelListVisibility: "labelShow",
-    messageListVisibility: "show",
-  })) as GmailLabel;
-  return created.id;
+async function getOrCreateLabelId(labelName: string, accessToken: string): Promise<string> {
+  const cached = labelIdCache.get(labelName);
+  if (cached) return cached;
+
+  const inFlight = labelIdInFlight.get(labelName);
+  if (inFlight) return inFlight;
+
+  const promise = (async () => {
+    const { labels } = (await gmailGet("/labels", accessToken)) as { labels: GmailLabel[] };
+    const existing = labels.find((l) => l.name === labelName);
+    if (existing) {
+      labelIdCache.set(labelName, existing.id);
+      return existing.id;
+    }
+
+    const created = (await gmailPost("/labels", accessToken, {
+      name: labelName,
+      labelListVisibility: "labelShow",
+      messageListVisibility: "show",
+    })) as GmailLabel;
+    labelIdCache.set(labelName, created.id);
+    return created.id;
+  })();
+
+  labelIdInFlight.set(labelName, promise);
+  try {
+    return await promise;
+  } finally {
+    labelIdInFlight.delete(labelName);
+  }
 }
 
 export async function moveMessageToLabel(id: string, labelName: string): Promise<void> {

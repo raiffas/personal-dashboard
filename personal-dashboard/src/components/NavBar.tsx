@@ -3,9 +3,11 @@ import { Link } from "wouter";
 type NavBarProps = {
   mode: "day" | "night";
   onToggleMode: () => void;
+  queueDebugMode: boolean;
+  onToggleQueueDebug: () => void;
 };
 
-function NavBar({ mode, onToggleMode }: NavBarProps) {
+function NavBar({ mode, onToggleMode, queueDebugMode, onToggleQueueDebug }: NavBarProps) {
   return (
     <nav className="nav-bar">
       <button
@@ -27,6 +29,13 @@ function NavBar({ mode, onToggleMode }: NavBarProps) {
           Calendar
         </button>
       </Link>
+      <button
+        className={queueDebugMode ? "nav-link active" : "nav-link"}
+        title="Toggle visible inbox action queueing (debug)"
+        onClick={onToggleQueueDebug}
+      >
+        Queue debug: {queueDebugMode ? "on" : "off"}
+      </button>
     </nav>
   );
 }

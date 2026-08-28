@@ -569,6 +569,18 @@ body::before {
   text-decoration: none;
 }
 
+.iz-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.iz-pending-badge {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
 .iz-dropdown-menu {
   position: absolute;
   top: 40px;
