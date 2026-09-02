@@ -1,21 +1,25 @@
-# bun-react-tailwind-template
+# personal-dashboard
 
 To install dependencies:
 
 ```bash
-bun install
+npm install
 ```
 
-To start a development server:
+To start a development server (Vite frontend + Express API, both with hot reload):
 
 ```bash
-bun dev
+npm run dev
 ```
 
-To run for production:
+To build for production:
 
 ```bash
-bun start
+npm run build
 ```
 
-This project was created using `bun init` in bun v1.3.14. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+To run the production server (serves the built frontend and the API from one process):
+
+```bash
+npm run start
+```

@@ -1,3 +1,5 @@
+import "dotenv/config";
+import { createServer } from "node:http";
 import { exchangeCodeForTokens, getAuthorizationUrl, saveTokens } from "../src/lib/gmail";
 
 const PORT = 8765;
@@ -10,36 +12,41 @@ const done = new Promise<void>((resolve, reject) => {
   rejectAuth = reject;
 });
 
-const server = Bun.serve({
-  port: PORT,
-  async fetch(req) {
-    const url = new URL(req.url);
-    if (url.pathname !== "/oauth2callback") {
-      return new Response("Not found", { status: 404 });
-    }
+const server = createServer(async (req, res) => {
+  const url = new URL(req.url ?? "/", REDIRECT_URI);
+  if (url.pathname !== "/oauth2callback") {
+    res.writeHead(404);
+    res.end("Not found");
+    return;
+  }
 
-    const error = url.searchParams.get("error");
-    if (error) {
-      rejectAuth(new Error(`Google returned an error: ${error}`));
-      return new Response(`Authorization failed: ${error}. You can close this tab.`);
-    }
+  const error = url.searchParams.get("error");
+  if (error) {
+    rejectAuth(new Error(`Google returned an error: ${error}`));
+    res.end(`Authorization failed: ${error}. You can close this tab.`);
+    return;
+  }
 
-    const code = url.searchParams.get("code");
-    if (!code) {
-      return new Response("Missing code parameter", { status: 400 });
-    }
+  const code = url.searchParams.get("code");
+  if (!code) {
+    res.writeHead(400);
+    res.end("Missing code parameter");
+    return;
+  }
 
-    try {
-      const tokens = await exchangeCodeForTokens(code, REDIRECT_URI);
-      await saveTokens(tokens);
-      resolveAuth();
-      return new Response("Gmail authorization complete. You can close this tab and return to the terminal.");
-    } catch (err) {
-      rejectAuth(err as Error);
-      return new Response("Token exchange failed. Check the terminal for details.", { status: 500 });
-    }
-  },
+  try {
+    const tokens = await exchangeCodeForTokens(code, REDIRECT_URI);
+    await saveTokens(tokens);
+    resolveAuth();
+    res.end("Gmail authorization complete. You can close this tab and return to the terminal.");
+  } catch (err) {
+    rejectAuth(err as Error);
+    res.writeHead(500);
+    res.end("Token exchange failed. Check the terminal for details.");
+  }
 });
+
+server.listen(PORT);
 
 console.log("Open this URL in your browser to authorize Gmail access:\n");
 console.log(getAuthorizationUrl(REDIRECT_URI));
@@ -52,5 +59,5 @@ try {
   console.error("\nAuthorization failed:", err);
   process.exitCode = 1;
 } finally {
-  server.stop();
+  server.close();
 }

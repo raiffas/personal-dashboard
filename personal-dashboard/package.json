@@ -1,25 +1,35 @@
 {
-  "name": "bun-react-template",
+  "name": "personal-dashboard",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --hot src/index.ts",
-    "start": "NODE_ENV=production bun src/index.ts",
-    "build": "bun run build.ts",
-    "gmail:auth": "bun run scripts/gmail-auth.ts",
-    "gmail:unread": "bun run scripts/gmail-unread-count.ts"
+    "dev": "concurrently -n vite,api \"vite\" \"tsx watch src/index.ts\"",
+    "build": "vite build",
+    "start": "cross-env NODE_ENV=production tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "gmail:auth": "tsx scripts/gmail-auth.ts",
+    "gmail:unread": "tsx scripts/gmail-unread-count.ts"
   },
   "dependencies": {
-    "bun-plugin-tailwind": "^0.1.2",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
     "react": "^19",
     "react-dom": "^19",
-    "tailwindcss": "^4.1.11",
+    "tsx": "^4.19.2",
     "wouter": "^3.10.0"
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "@tailwindcss/vite": "^4.1.11",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22",
     "@types/react": "^19",
-    "@types/react-dom": "^19"
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "cross-env": "^10.1.0",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^7.0.2",
+    "vite": "^6.0.0"
   }
 }

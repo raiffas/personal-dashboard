@@ -1,6 +1,7 @@
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const TOKENS_PATH = join(import.meta.dir, "..", "..", ".gmail-tokens.json");
+const TOKENS_PATH = join(import.meta.dirname, "..", "..", ".gmail-tokens.json");
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const SCOPE = "https://www.googleapis.com/auth/gmail.modify";
@@ -31,13 +32,17 @@ function requireEnv(name: string): string {
 }
 
 export async function loadTokens(): Promise<StoredTokens | null> {
-  const file = Bun.file(TOKENS_PATH);
-  if (!(await file.exists())) return null;
-  return (await file.json()) as StoredTokens;
+  try {
+    const text = await readFile(TOKENS_PATH, "utf8");
+    return JSON.parse(text) as StoredTokens;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
+  }
 }
 
 export async function saveTokens(tokens: StoredTokens): Promise<void> {
-  await Bun.write(TOKENS_PATH, JSON.stringify(tokens, null, 2));
+  await writeFile(TOKENS_PATH, JSON.stringify(tokens, null, 2));
 }
 
 export function getAuthorizationUrl(redirectUri: string): string {
@@ -102,7 +107,7 @@ async function refreshAccessToken(refreshToken: string): Promise<StoredTokens> {
 export async function getValidAccessToken(): Promise<string> {
   const tokens = await loadTokens();
   if (!tokens?.refresh_token) {
-    throw new GmailAuthError("No saved Gmail authorization. Run `bun run gmail:auth` first.");
+    throw new GmailAuthError("No saved Gmail authorization. Run `npm run gmail:auth` first.");
   }
   if (tokens.access_token && tokens.expiry_date && tokens.expiry_date - EXPIRY_BUFFER_MS > Date.now()) {
     return tokens.access_token;

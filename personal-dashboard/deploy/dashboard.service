@@ -1,0 +1,15 @@
+[Unit]
+Description=Personal dashboard (Node)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/<ssh-user>/personal-dashboard
+ExecStart=/home/<ssh-user>/personal-dashboard/node_modules/.bin/tsx src/index.ts
+Restart=on-failure
+RestartSec=3
+Environment=NODE_ENV=production
+EnvironmentFile=/home/<ssh-user>/personal-dashboard/.env
+
+[Install]
+WantedBy=multi-user.target

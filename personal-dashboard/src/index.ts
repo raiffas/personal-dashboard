@@ -1,5 +1,6 @@
-import { serve } from "bun";
-import index from "./index.html";
+import "dotenv/config";
+import express, { type Response } from "express";
+import path from "node:path";
 import {
   GmailAuthError,
   archiveMessage,
@@ -11,113 +12,92 @@ import {
 
 const MAX_MESSAGES_LIMIT = 100;
 const DEFAULT_MESSAGES_LIMIT = 50;
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+const isProduction = process.env.NODE_ENV === "production";
 
-async function handleGmailAction(action: () => Promise<void>): Promise<Response> {
+async function handleGmailAction(res: Response, action: () => Promise<void>): Promise<void> {
   try {
     await action();
-    return Response.json({ ok: true });
+    res.json({ ok: true });
   } catch (err) {
     if (err instanceof GmailAuthError) {
-      return Response.json({ error: err.message }, { status: 401 });
+      res.status(401).json({ error: err.message });
+      return;
     }
     console.error("Gmail action failed:", err);
-    return Response.json({ error: "Gmail action failed" }, { status: 502 });
+    res.status(502).json({ error: "Gmail action failed" });
   }
 }
 
-const server = serve({
-  routes: {
-    // Serve index.html for all unmatched routes.
-    "/*": index,
+const app = express();
+app.use(express.json());
 
-    "/api/gmail/unread-count": {
-      async GET() {
-        try {
-          const count = await getUnreadCount();
-          return Response.json({ count });
-        } catch (err) {
-          if (err instanceof GmailAuthError) {
-            return Response.json({ error: err.message }, { status: 401 });
-          }
-          console.error("Failed to fetch Gmail unread count:", err);
-          return Response.json({ error: "Failed to fetch unread count" }, { status: 502 });
-        }
-      },
-    },
-
-    "/api/gmail/messages": {
-      async GET(req) {
-        const url = new URL(req.url);
-        const requested = Number(url.searchParams.get("maxResults"));
-        const maxResults = Number.isFinite(requested) && requested > 0
-          ? Math.min(requested, MAX_MESSAGES_LIMIT)
-          : DEFAULT_MESSAGES_LIMIT;
-        try {
-          const messages = await listUnreadMessages(maxResults);
-          return Response.json({ messages });
-        } catch (err) {
-          if (err instanceof GmailAuthError) {
-            return Response.json({ error: err.message }, { status: 401 });
-          }
-          console.error("Failed to fetch Gmail messages:", err);
-          return Response.json({ error: "Failed to fetch messages" }, { status: 502 });
-        }
-      },
-    },
-
-    "/api/gmail/messages/:id/archive": {
-      async POST(req) {
-        return handleGmailAction(() => archiveMessage(req.params.id));
-      },
-    },
-
-    "/api/gmail/messages/:id/trash": {
-      async POST(req) {
-        return handleGmailAction(() => trashMessage(req.params.id));
-      },
-    },
-
-    "/api/gmail/messages/:id/label": {
-      async POST(req) {
-        const body = await req.json().catch(() => null);
-        const label = body?.label;
-        if (typeof label !== "string" || !label.trim()) {
-          return Response.json({ error: "Missing label" }, { status: 400 });
-        }
-        return handleGmailAction(() => moveMessageToLabel(req.params.id, label));
-      },
-    },
-
-    "/api/hello": {
-      async GET(req) {
-        return Response.json({
-          message: "Hello, world!",
-          method: "GET",
-        });
-      },
-      async PUT(req) {
-        return Response.json({
-          message: "Hello, world!",
-          method: "PUT",
-        });
-      },
-    },
-
-    "/api/hello/:name": async req => {
-      const name = req.params.name;
-      return Response.json({
-        message: `Hello, ${name}!`,
-      });
-    },
-  },
-
-  development: process.env.NODE_ENV !== "production" && {
-    // Enable browser hot reloading in development
-    hmr: true,
-
-    // Echo console logs from the browser to the server
-    console: true,
-  },
+app.get("/api/gmail/unread-count", async (_req, res) => {
+  try {
+    const count = await getUnreadCount();
+    res.json({ count });
+  } catch (err) {
+    if (err instanceof GmailAuthError) {
+      res.status(401).json({ error: err.message });
+      return;
+    }
+    console.error("Failed to fetch Gmail unread count:", err);
+    res.status(502).json({ error: "Failed to fetch unread count" });
+  }
 });
 
-console.log(`🚀 Server running at ${server.url}`);
+app.get("/api/gmail/messages", async (req, res) => {
+  const requested = Number(req.query.maxResults);
+  const maxResults =
+    Number.isFinite(requested) && requested > 0 ? Math.min(requested, MAX_MESSAGES_LIMIT) : DEFAULT_MESSAGES_LIMIT;
+  try {
+    const messages = await listUnreadMessages(maxResults);
+    res.json({ messages });
+  } catch (err) {
+    if (err instanceof GmailAuthError) {
+      res.status(401).json({ error: err.message });
+      return;
+    }
+    console.error("Failed to fetch Gmail messages:", err);
+    res.status(502).json({ error: "Failed to fetch messages" });
+  }
+});
+
+app.post("/api/gmail/messages/:id/archive", (req, res) => handleGmailAction(res, () => archiveMessage(req.params.id)));
+
+app.post("/api/gmail/messages/:id/trash", (req, res) => handleGmailAction(res, () => trashMessage(req.params.id)));
+
+app.post("/api/gmail/messages/:id/label", (req, res) => {
+  const label = req.body?.label;
+  if (typeof label !== "string" || !label.trim()) {
+    res.status(400).json({ error: "Missing label" });
+    return;
+  }
+  handleGmailAction(res, () => moveMessageToLabel(req.params.id, label));
+});
+
+app.get("/api/hello", (_req, res) => {
+  res.json({ message: "Hello, world!", method: "GET" });
+});
+app.put("/api/hello", (_req, res) => {
+  res.json({ message: "Hello, world!", method: "PUT" });
+});
+app.get("/api/hello/:name", (req, res) => {
+  res.json({ message: `Hello, ${req.params.name}!` });
+});
+
+// In dev, Vite's own server handles the frontend (and proxies /api here —
+// see vite.config.ts), so this process only needs to answer API requests.
+// In production there's no separate Vite server, so this process also
+// serves the built static assets, with an SPA fallback for client routes.
+if (isProduction) {
+  const distDir = path.join(import.meta.dirname, "..", "dist");
+  app.use(express.static(distDir));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(distDir, "index.html"));
+  });
+}
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
+});
