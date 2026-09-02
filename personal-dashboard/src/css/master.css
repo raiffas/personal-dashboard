@@ -20,10 +20,14 @@
   --hairline: rgba(0, 0, 0, 0.08);
   --radius-sm: 8px;
   --radius-lg: 24px;
+  --shadow-soft: 0 8px 30px rgba(0, 0, 0, 0.08);
 
   --font-display: "Fraunces", serif;
   --font-accent: "Caveat", cursive;
   --font-ui: "Inter", sans-serif;
+
+  --text-page-header: clamp(32px, 4vw, 48px);
+  --text-label: 11px;
 
   --orb-size: min(85vw, calc((100vh - var(--nav-height)) * 0.85));
   /* Derived from --orb-size (not the viewport directly) so the headline and
@@ -309,16 +313,537 @@ body::before {
 }
 
 /* Calendar Page */
-.calendar-page {
-  width: 100%;
-  max-width: var(--max-width);
-  height: calc(100vh - var(--nav-height));
-  margin: var(--nav-height) auto 0;
-  padding: 40px 20px;
+.cal-page {
+  min-height: calc(100vh - var(--nav-height));
+  margin-top: var(--nav-height);
+  background: var(--bg);
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  padding: 40px 40px 56px;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.cal-header {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.cal-title {
+  font-family: var(--font-display);
+  font-size: var(--text-page-header);
+  margin: 0;
+  color: var(--headline-fill);
+  text-shadow: 2px 2px 0 var(--ink);
+}
+
+.cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cal-nav-btn,
+.cal-today-btn {
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  box-shadow: 0 0 0 var(--ink);
+  transition: box-shadow 0.15s, transform 0.15s;
+  font-family: var(--font-ui);
+}
+
+.cal-nav-btn {
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+}
+
+.cal-today-btn {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cal-nav-btn:hover,
+.cal-today-btn:hover {
+  box-shadow: 2px 2px 0 var(--ink);
+  transform: translate(-2px, -2px);
+}
+
+.cal-weekday-row,
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.cal-weekday-row {
+  margin-bottom: 8px;
+}
+
+.cal-weekday {
   text-align: center;
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  text-transform: lowercase;
+  padding: 4px 0;
+}
+
+.cal-cell {
+  min-height: 104px;
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  border: 1px solid transparent;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.cal-cell--outside {
+  background: transparent;
+  cursor: default;
+}
+
+.cal-cell--today {
+  border: 2px solid var(--ink);
+}
+
+.cal-cell-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.cal-day-num {
+  font-size: 15px;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.cal-cell--outside .cal-day-num {
+  color: var(--text-muted);
+}
+
+.cal-day-num--today {
+  font-weight: 700;
+}
+
+.cal-cell-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: auto;
+}
+
+/* Shared by grid-cell dots, the event-row dot, and the label-picker dot */
+.cal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.cal-journal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--arrow-pink);
+  margin-top: 3px;
+}
+
+.cal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 59, 78, 0.3);
+  animation: fadeIn 0.15s ease;
+  z-index: 40;
+}
+
+.cal-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: min(440px, 100vw);
+  background: var(--bg);
+  box-shadow: var(--shadow-soft);
+  z-index: 41;
+  overflow-y: auto;
+  animation: panelIn 0.2s ease;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-sizing: border-box;
+}
+
+.cal-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.cal-panel-weekday {
+  font-size: var(--text-label);
+  color: var(--text-secondary);
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+}
+
+.cal-panel-date {
+  font-family: var(--font-display);
+  font-size: 28px;
+  margin: 2px 0 0;
+  color: var(--headline-fill);
+  text-shadow: 2px 2px 0 var(--ink);
+}
+
+.cal-close-btn {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+
+.cal-journal-card {
+  width: 320px;
+  max-width: 100%;
+  margin: 0 auto;
+  background: var(--paper);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.cal-journal-label {
+  font-family: var(--font-accent);
+  font-size: var(--text-accent);
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.cal-journal-textarea {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.cal-journal-preview {
+  min-height: 100px;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  cursor: text;
+}
+
+/* Shared by the "events" and "add event" section headers */
+.cal-section-label {
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 8px;
+}
+
+.cal-empty-state {
+  padding: 24px 20px;
+  text-align: center;
+  font-family: var(--font-accent);
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+.cal-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cal-event {
+  background: var(--paper);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.cal-event-row {
+  padding: 8px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.cal-event-summary {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.cal-event-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-event-time {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cal-event-location {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-event-delete {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.cal-event-details {
+  padding: 0 12px 12px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cal-event-details-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.cal-event-details-time,
+.cal-event-details-location {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.cal-event-details-location {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.cal-event-notes-textarea {
+  width: 100%;
+  min-height: 56px;
+  resize: vertical;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg);
+  box-sizing: border-box;
+}
+
+.cal-event-notes-preview {
+  min-height: 32px;
+  padding: 6px 8px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  cursor: text;
+  box-sizing: border-box;
+}
+
+.cal-add-event {
+  background: var(--paper);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cal-field--flex {
+  flex: 1;
+}
+
+.cal-field-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.cal-field-label--block {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.cal-input {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.cal-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cal-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.cal-time-fields {
+  display: flex;
+  gap: 8px;
+}
+
+.cal-label-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cal-label-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+  color: var(--text-primary);
+}
+
+.cal-label-btn--selected {
+  border-color: var(--ink);
+  background: var(--paper);
+}
+
+.cal-new-label-btn {
+  border: 1px dashed var(--text-secondary);
+  background: transparent;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+}
+
+.cal-new-label-form {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cal-swatch-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cal-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.cal-swatch--selected {
+  border-color: var(--ink);
+}
+
+.cal-save-label-btn {
+  align-self: flex-start;
+  border: none;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cal-add-event-btn {
+  width: 100%;
+  height: 44px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cal-add-event-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* Inbox Page */
@@ -551,6 +1076,24 @@ body::before {
   }
   to {
     background-position: 256px 224px;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes panelIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
   }
 }
 
