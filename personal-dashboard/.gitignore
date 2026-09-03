@@ -25,6 +25,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Gmail OAuth tokens (local only)
 .gmail-tokens.json
 
+# SQLite database (local data, not source)
+data/*.db
+
 # caches
 .eslintcache
 .cache

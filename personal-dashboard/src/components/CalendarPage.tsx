@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
 
 const MONTH_NAMES = [
@@ -52,26 +52,6 @@ const SEED_LABELS: EventLabel[] = [
   { id: "l3", name: "Health", color: "#6b8ba4" },
   { id: "l4", name: "Social", color: "#c99a3e" },
 ];
-
-const SEED_EVENTS: CalendarEvent[] = [
-  { id: "e1", date: "2026-08-03", title: "Team standup", start: "09:00", end: "09:30", allDay: false, location: "Zoom", notes: "", labelId: "l1" },
-  { id: "e2", date: "2026-08-03", title: "Dentist appointment", start: "14:00", end: "15:00", allDay: false, location: "Riverside Dental", notes: "", labelId: "l3" },
-  { id: "e3", date: "2026-08-07", title: "Mia's birthday dinner", start: "19:00", end: "21:00", allDay: false, location: "Casa Luna", notes: "Bring the wine", labelId: "l4" },
-  { id: "e4", date: "2026-08-10", title: "Quarterly review", start: "11:00", end: "12:00", allDay: false, location: "Conf Room B", notes: "Bring Q3 numbers", labelId: "l1" },
-  { id: "e5", date: "2026-08-10", title: "Run — 5 miles", start: "06:30", end: "07:15", allDay: false, location: "", notes: "", labelId: "l3" },
-  { id: "e6", date: "2026-08-12", title: "Design offsite", start: null, end: null, allDay: true, location: "Downtown studio", notes: "", labelId: "l1" },
-  { id: "e7", date: "2026-08-15", title: "Farmers market", start: "10:00", end: "11:30", allDay: false, location: "", notes: "", labelId: "l2" },
-  { id: "e8", date: "2026-08-20", title: "Book club", start: "18:30", end: "20:00", allDay: false, location: "Priya's place", notes: "Finish ch. 12", labelId: "l4" },
-  { id: "e9", date: "2026-08-24", title: "Flight to Denver", start: "07:20", end: "10:05", allDay: false, location: "Gate C14", notes: "", labelId: "l2" },
-  { id: "e10", date: "2026-08-28", title: "Performance check-in", start: "15:00", end: "15:30", allDay: false, location: "", notes: "", labelId: "l1" },
-];
-
-const SEED_JOURNAL: Record<string, string> = {
-  "2026-08-03": "Slept badly, felt a bit foggy in the morning. Standup went fine though. Trying to drink more water today.",
-  "2026-08-08": "Long walk with Sam in the afternoon. Good mood overall, felt caught up on things for once.",
-  "2026-08-10": "Nervous about the review this morning but it went better than expected. Ran before work — legs felt heavy but got it done.",
-  "2026-08-15": "Slow Saturday. Farmers market was busy but nice. Cooked a big dinner, feeling relaxed.",
-};
 
 function pad(n: number): string {
   return String(n).padStart(2, "0");
@@ -137,8 +117,10 @@ const CalendarPage = () => {
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState(SWATCHES[0]!);
   const [labels, setLabels] = useState<EventLabel[]>(SEED_LABELS);
-  const [events, setEvents] = useState<CalendarEvent[]>(SEED_EVENTS);
-  const [journal, setJournal] = useState<Record<string, string>>(SEED_JOURNAL);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [journal, setJournal] = useState<Record<string, string>>({});
+  const [journalError, setJournalError] = useState<string | null>(null);
   const [form, setForm] = useState<EventFormState>({
     title: "",
     allDay: false,
@@ -148,6 +130,49 @@ const CalendarPage = () => {
     notes: "",
     labelId: SEED_LABELS[0]?.id ?? null,
   });
+
+  // Load events from the SQLite-backed API once on mount; the calendar
+  // renders empty until this resolves rather than showing stale seed data.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/calendar/events")
+      .then(async (res) => {
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) {
+          setEventsError(data.error ?? "Failed to load events");
+          return;
+        }
+        setEvents(data.events);
+      })
+      .catch(() => {
+        if (!cancelled) setEventsError("Failed to load events");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Same pattern for daily check-ins, from the separate journal table.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/calendar/journal")
+      .then(async (res) => {
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) {
+          setJournalError(data.error ?? "Failed to load journal");
+          return;
+        }
+        setJournal(data.journal);
+      })
+      .catch(() => {
+        if (!cancelled) setJournalError("Failed to load journal");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const { year, month } = view;
   const monthLabel = `${MONTH_NAMES[month]!.toLowerCase()} ${year}`;
@@ -280,8 +305,21 @@ const CalendarPage = () => {
   function startJournalEditing() {
     setJournalEditing(true);
   }
-  function stopJournalEditing() {
+  async function stopJournalEditing() {
     setJournalEditing(false);
+    if (!selectedDate) return;
+    const text = journal[selectedDate] ?? "";
+    try {
+      const res = await fetch(`/api/calendar/journal/${selectedDate}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error();
+      setJournalError(null);
+    } catch {
+      setJournalError("Failed to save check-in");
+    }
   }
 
   function onFieldChange(key: keyof EventFormState) {
@@ -300,17 +338,42 @@ const CalendarPage = () => {
     setExpandedEventId(collapsing ? null : id);
     if (!collapsing) setEditingNotesId(null);
   }
+  // Upserts one event to the SQLite-backed API; shared by addEvent (new
+  // events) and stopNotesEditing (persisting an in-place notes edit).
+  async function saveEvent(event: CalendarEvent): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/calendar/events/${event.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(event),
+      });
+      if (!res.ok) throw new Error();
+      setEventsError(null);
+      return true;
+    } catch {
+      setEventsError("Failed to save event");
+      return false;
+    }
+  }
   function updateEventNotes(id: string, notes: string) {
     setEvents((es) => es.map((e) => (e.id === id ? { ...e, notes } : e)));
   }
   function startNotesEditing(id: string) {
     setEditingNotesId(id);
   }
-  function stopNotesEditing() {
+  function stopNotesEditing(event: CalendarEvent) {
     setEditingNotesId(null);
+    saveEvent(event);
   }
-  function deleteEvent(id: string) {
-    setEvents((es) => es.filter((e) => e.id !== id));
+  async function deleteEvent(id: string) {
+    try {
+      const res = await fetch(`/api/calendar/events/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setEvents((es) => es.filter((e) => e.id !== id));
+      setEventsError(null);
+    } catch {
+      setEventsError("Failed to delete event");
+    }
   }
 
   function selectLabel(id: string) {
@@ -337,23 +400,22 @@ const CalendarPage = () => {
     setForm((f) => ({ ...f, labelId: id }));
   }
 
-  function addEvent() {
+  async function addEvent() {
     if (!form.title.trim() || !selectedDate) return;
-    const id = "e" + Date.now();
-    setEvents((es) => [
-      ...es,
-      {
-        id,
-        date: selectedDate,
-        title: form.title.trim(),
-        start: form.allDay ? null : form.start,
-        end: form.allDay ? null : form.end,
-        allDay: form.allDay,
-        location: form.location.trim(),
-        notes: form.notes.trim(),
-        labelId: form.labelId,
-      },
-    ]);
+    const event: CalendarEvent = {
+      id: crypto.randomUUID(),
+      date: selectedDate,
+      title: form.title.trim(),
+      start: form.allDay ? null : form.start,
+      end: form.allDay ? null : form.end,
+      allDay: form.allDay,
+      location: form.location.trim(),
+      notes: form.notes.trim(),
+      labelId: form.labelId,
+    };
+    const saved = await saveEvent(event);
+    if (!saved) return;
+    setEvents((es) => [...es, event]);
     setForm((f) => ({
       title: "",
       allDay: false,
@@ -426,6 +488,11 @@ const CalendarPage = () => {
 
             <div className="cal-journal-card">
               <div className="cal-journal-label">daily checkin</div>
+              {journalError && (
+                <div className="cal-empty-state" style={{ color: "var(--arrow-pink)" }}>
+                  {journalError}
+                </div>
+              )}
               {journalEditing ? (
                 <textarea
                   autoFocus
@@ -449,6 +516,11 @@ const CalendarPage = () => {
 
             <div>
               <div className="cal-section-label">events</div>
+              {eventsError && (
+                <div className="cal-empty-state" style={{ color: "var(--arrow-pink)" }}>
+                  {eventsError}
+                </div>
+              )}
               {dayEvents.length === 0 && <div className="cal-empty-state">nothing here yet</div>}
               <div className="cal-event-list">
                 {dayEvents.map((ev) => (
@@ -481,7 +553,7 @@ const CalendarPage = () => {
                             autoFocus
                             value={ev.notes}
                             onChange={(e) => updateEventNotes(ev.id, e.target.value)}
-                            onBlur={stopNotesEditing}
+                            onBlur={() => stopNotesEditing(ev)}
                             placeholder="jot a note for this event…"
                             className="cal-event-notes-textarea"
                           />

@@ -9,6 +9,7 @@ import {
   moveMessageToLabel,
   trashMessage,
 } from "./lib/gmail";
+import { deleteEvent, listEvents, listJournal, upsertEvent, upsertJournalEntry } from "./lib/calendarDb";
 
 const MAX_MESSAGES_LIMIT = 100;
 const DEFAULT_MESSAGES_LIMIT = 50;
@@ -74,6 +75,78 @@ app.post("/api/gmail/messages/:id/label", (req, res) => {
     return;
   }
   handleGmailAction(res, () => moveMessageToLabel(req.params.id, label));
+});
+
+app.get("/api/calendar/events", (_req, res) => {
+  try {
+    res.json({ events: listEvents() });
+  } catch (err) {
+    console.error("Failed to list calendar events:", err);
+    res.status(500).json({ error: "Failed to load events" });
+  }
+});
+
+// Upsert: the client always supplies an id (new events get a fresh
+// crypto.randomUUID() client-side), so create and edit both land here.
+app.put("/api/calendar/events/:id", (req, res) => {
+  const { date, title, start, end, allDay, location, notes, labelId } = req.body ?? {};
+  if (typeof date !== "string" || typeof title !== "string") {
+    res.status(400).json({ error: "Missing required fields" });
+    return;
+  }
+  try {
+    upsertEvent({
+      id: req.params.id,
+      date,
+      title,
+      start: typeof start === "string" ? start : null,
+      end: typeof end === "string" ? end : null,
+      allDay: !!allDay,
+      location: typeof location === "string" ? location : "",
+      notes: typeof notes === "string" ? notes : "",
+      labelId: typeof labelId === "string" ? labelId : null,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Failed to save calendar event:", err);
+    res.status(500).json({ error: "Failed to save event" });
+  }
+});
+
+app.delete("/api/calendar/events/:id", (req, res) => {
+  try {
+    deleteEvent(req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Failed to delete calendar event:", err);
+    res.status(500).json({ error: "Failed to delete event" });
+  }
+});
+
+app.get("/api/calendar/journal", (_req, res) => {
+  try {
+    res.json({ journal: listJournal() });
+  } catch (err) {
+    console.error("Failed to list journal entries:", err);
+    res.status(500).json({ error: "Failed to load journal" });
+  }
+});
+
+// Upsert: PRIMARY KEY is the date, so re-saving the same date (editing a
+// check-in later in the day) just overwrites that one row.
+app.put("/api/calendar/journal/:date", (req, res) => {
+  const { text } = req.body ?? {};
+  if (typeof text !== "string") {
+    res.status(400).json({ error: "Missing text" });
+    return;
+  }
+  try {
+    upsertJournalEntry(req.params.date, text);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Failed to save journal entry:", err);
+    res.status(500).json({ error: "Failed to save journal entry" });
+  }
 });
 
 app.get("/api/hello", (_req, res) => {
