@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { Link } from "wouter";
 import sun from "../assets/sun_transparent.png";
+import moon from "../assets/moon-transparent.png";
 
 // Casts the per-letter arch values to CSS custom properties so the actual
 // transform formula lives once, in .arched-letter (master.css), instead of
@@ -39,6 +40,7 @@ type HomePageProps = {
 
 const HomePage = ({ mode }: HomePageProps) => {
   const secondWordText = mode === "night" ? NIGHT_TEXT : MORNING_TEXT;
+  const orbSrc = mode === "night" ? moon : sun;
   const morningLetters = makeArchedLetters(secondWordText, MORNING_CURVE_MAX_ROTATION, MORNING_CURVE_MAX_LIFT);
 
   const dateText = new Date()
@@ -54,7 +56,7 @@ const HomePage = ({ mode }: HomePageProps) => {
   return (
     <div className="home-page">
       <div className="orb-container" role="heading" aria-level={1} aria-label={`good ${secondWordText}`}>
-        <img src={sun} alt="" className="orb" />
+        <img src={orbSrc} alt="" className="orb" />
         <div className="headline-group">
           <span className="good-headline" aria-hidden="true">
             {goodLetters.map(({ char, rotation, lift }, i) => (

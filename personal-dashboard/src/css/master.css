@@ -150,6 +150,12 @@ body::before {
   height: calc(100vh - var(--nav-height));
   margin-top: var(--nav-height);
   position: relative;
+  /* Set directly (like .cal-page) instead of relying on body's background:
+     --bg is scoped to the [data-mode] div, which is a *child* of body, so
+     body never sees the custom property and would stay stuck on its
+     fallback color. */
+  background: var(--bg);
+  transition: background-color 0.4s ease;
 }
 
 /* Orb (Sun/Moon) */
