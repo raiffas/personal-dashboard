@@ -74,7 +74,7 @@ const HomePage = ({ mode }: HomePageProps) => {
         </div>
       </div>
 
-      <div className="side-arrows">
+      {/* <div className="side-arrows">
         <Link to="/inbox">
           <button className="arrow-button left">
             <span className="arrow-label">inbox</span>
@@ -85,7 +85,7 @@ const HomePage = ({ mode }: HomePageProps) => {
             <span className="arrow-label">calendar</span>
           </button>
         </Link>
-      </div>
+      </div> */}
 
       <div className="date-stamp">{dateText}</div>
     </div>
