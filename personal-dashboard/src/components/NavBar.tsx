@@ -2,24 +2,19 @@ import { Link } from "wouter";
 
 type NavBarProps = {
   mode: "day" | "night";
-  onToggleMode: () => void;
   queueDebugMode: boolean;
   onToggleQueueDebug: () => void;
 };
 
-function NavBar({ mode, onToggleMode, queueDebugMode, onToggleQueueDebug }: NavBarProps) {
+function NavBar({ mode, queueDebugMode, onToggleQueueDebug }: NavBarProps) {
   return (
     <nav className="nav-bar">
-      <button
-        className="nav-logo"
-        id="modeToggle"
-        title="Toggle day/night mode"
-        onClick={onToggleMode}
-      >
+      {/* Mode is set automatically by time of day; this is a status icon, not a control. */}
+      <div className="nav-logo" id="modeToggle" title="Day/night mode (automatic)">
         <span id="modeIcon">{mode === "day" ? "☀️" : "🌙"}</span>
-      </button>
+      </div>
       <Link to="/" className="nav-links">
-        <button className="nav-link active">Home ({mode})</button>
+        <button className="nav-link active">Home</button>
       </Link>
       <Link to="/inbox" className="nav-links">
         <button className="nav-link">Inbox</button>
