@@ -10,6 +10,7 @@ import {
   trashMessage,
 } from "./lib/gmail";
 import { deleteEvent, listEvents, listJournal, upsertEvent, upsertJournalEntry } from "./lib/calendarDb";
+import { getNotesText, upsertNotesText } from "./lib/notesDb";
 
 const MAX_MESSAGES_LIMIT = 100;
 const DEFAULT_MESSAGES_LIMIT = 50;
@@ -146,6 +147,32 @@ app.put("/api/calendar/journal/:date", (req, res) => {
   } catch (err) {
     console.error("Failed to save journal entry:", err);
     res.status(500).json({ error: "Failed to save journal entry" });
+  }
+});
+
+app.get("/api/notes", (_req, res) => {
+  try {
+    res.json({ text: getNotesText() });
+  } catch (err) {
+    console.error("Failed to load notes:", err);
+    res.status(500).json({ error: "Failed to load notes" });
+  }
+});
+
+// Upsert: single row (id=1), so every save just overwrites it — no
+// versioning, this is an ever-growing scratchpad, not per-entry history.
+app.put("/api/notes", (req, res) => {
+  const { text } = req.body ?? {};
+  if (typeof text !== "string") {
+    res.status(400).json({ error: "Missing text" });
+    return;
+  }
+  try {
+    upsertNotesText(text);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Failed to save notes:", err);
+    res.status(500).json({ error: "Failed to save notes" });
   }
 });
 
