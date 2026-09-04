@@ -10,7 +10,12 @@ import {
   trashMessage,
 } from "./lib/gmail";
 import { deleteEvent, listEvents, listJournal, upsertEvent, upsertJournalEntry } from "./lib/calendarDb";
-import { getNotesText, upsertNotesText } from "./lib/notesDb";
+import { getNotesText, upsertNotesText, type NoteKind } from "./lib/notesDb";
+
+const NOTE_KINDS: readonly NoteKind[] = ["notes", "tech", "todo"];
+function isNoteKind(value: string): value is NoteKind {
+  return (NOTE_KINDS as readonly string[]).includes(value);
+}
 
 const MAX_MESSAGES_LIMIT = 100;
 const DEFAULT_MESSAGES_LIMIT = 50;
@@ -150,25 +155,33 @@ app.put("/api/calendar/journal/:date", (req, res) => {
   }
 });
 
-app.get("/api/notes", (_req, res) => {
+app.get("/api/notes/:kind", (req, res) => {
+  if (!isNoteKind(req.params.kind)) {
+    res.status(400).json({ error: "Invalid note kind" });
+    return;
+  }
   try {
-    res.json({ text: getNotesText() });
+    res.json({ text: getNotesText(req.params.kind) });
   } catch (err) {
     console.error("Failed to load notes:", err);
     res.status(500).json({ error: "Failed to load notes" });
   }
 });
 
-// Upsert: single row (id=1), so every save just overwrites it — no
-// versioning, this is an ever-growing scratchpad, not per-entry history.
-app.put("/api/notes", (req, res) => {
+// Upsert: single row per kind, so every save just overwrites it — no
+// versioning, this is an ever-growing scratchpad per kind, not per-entry history.
+app.put("/api/notes/:kind", (req, res) => {
+  if (!isNoteKind(req.params.kind)) {
+    res.status(400).json({ error: "Invalid note kind" });
+    return;
+  }
   const { text } = req.body ?? {};
   if (typeof text !== "string") {
     res.status(400).json({ error: "Missing text" });
     return;
   }
   try {
-    upsertNotesText(text);
+    upsertNotesText(req.params.kind, text);
     res.json({ ok: true });
   } catch (err) {
     console.error("Failed to save notes:", err);
