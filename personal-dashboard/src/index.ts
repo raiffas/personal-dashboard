@@ -9,7 +9,7 @@ import {
   moveMessageToLabel,
   trashMessage,
 } from "./lib/gmail";
-import { deleteEvent, listEvents, listJournal, upsertEvent, upsertJournalEntry } from "./lib/calendarDb";
+import { deleteEvent, listEvents, listJournal, listLabels, upsertEvent, upsertJournalEntry, upsertLabel } from "./lib/calendarDb";
 import { getNotesText, upsertNotesText, type NoteKind } from "./lib/notesDb";
 
 const NOTE_KINDS: readonly NoteKind[] = ["notes", "tech", "todo"];
@@ -95,7 +95,7 @@ app.get("/api/calendar/events", (_req, res) => {
 // Upsert: the client always supplies an id (new events get a fresh
 // crypto.randomUUID() client-side), so create and edit both land here.
 app.put("/api/calendar/events/:id", (req, res) => {
-  const { date, title, start, end, allDay, location, notes, labelId } = req.body ?? {};
+  const { date, endDate, title, start, end, allDay, location, notes, labelId, calendarLabel } = req.body ?? {};
   if (typeof date !== "string" || typeof title !== "string") {
     res.status(400).json({ error: "Missing required fields" });
     return;
@@ -104,6 +104,9 @@ app.put("/api/calendar/events/:id", (req, res) => {
     upsertEvent({
       id: req.params.id,
       date,
+      // Falls back to a single-day event if the client omits endDate or
+      // sends one earlier than the start date.
+      endDate: typeof endDate === "string" && endDate >= date ? endDate : date,
       title,
       start: typeof start === "string" ? start : null,
       end: typeof end === "string" ? end : null,
@@ -111,6 +114,7 @@ app.put("/api/calendar/events/:id", (req, res) => {
       location: typeof location === "string" ? location : "",
       notes: typeof notes === "string" ? notes : "",
       labelId: typeof labelId === "string" ? labelId : null,
+      calendarLabel: typeof calendarLabel === "string" ? calendarLabel : "",
     });
     res.json({ ok: true });
   } catch (err) {
@@ -126,6 +130,31 @@ app.delete("/api/calendar/events/:id", (req, res) => {
   } catch (err) {
     console.error("Failed to delete calendar event:", err);
     res.status(500).json({ error: "Failed to delete event" });
+  }
+});
+
+app.get("/api/calendar/labels", (_req, res) => {
+  try {
+    res.json({ labels: listLabels() });
+  } catch (err) {
+    console.error("Failed to list calendar labels:", err);
+    res.status(500).json({ error: "Failed to load labels" });
+  }
+});
+
+// Upsert, same convention as events: the client supplies the id.
+app.put("/api/calendar/labels/:id", (req, res) => {
+  const { name, color } = req.body ?? {};
+  if (typeof name !== "string" || typeof color !== "string") {
+    res.status(400).json({ error: "Missing required fields" });
+    return;
+  }
+  try {
+    upsertLabel({ id: req.params.id, name, color });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Failed to save calendar label:", err);
+    res.status(500).json({ error: "Failed to save label" });
   }
 });
 

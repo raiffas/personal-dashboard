@@ -26,7 +26,6 @@ function getNextBoundary(date: Date): Date {
 
 export function App() {
   const [mode, setMode] = useState<"day" | "night">(() => getModeForTime(new Date()));
-  const [queueDebugMode, setQueueDebugMode] = useState(false);
 
   // Re-computes mode exactly at each 3am/5pm boundary so a long-lived tab
   // switches automatically without polling every minute.
@@ -39,17 +38,13 @@ export function App() {
 
   return (
     <div data-mode={mode}>
-      <NavBar
-        mode={mode}
-        queueDebugMode={queueDebugMode}
-        onToggleQueueDebug={() => setQueueDebugMode((v) => !v)}
-      />
+      <NavBar mode={mode} />
       <Switch>
         <Route path="/">
           <HomePage mode={mode} />
         </Route>
         <Route path="/inbox">
-          <InboxPage debugQueueMode={queueDebugMode} />
+          <InboxPage />
         </Route>
         <Route path="/calendar" component={CalendarPage} />
       </Switch>

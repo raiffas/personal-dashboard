@@ -107,6 +107,20 @@ body::before {
   padding: 0;
 }
 
+/* Hidden by default; only shown at the mobile breakpoint below.
+   margin-left: auto pins it to the right edge of .nav-bar regardless of
+   what else is (or isn't) rendered alongside it. */
+.nav-hamburger {
+  display: none;
+  margin-left: auto;
+  font-size: 22px;
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--nav-inactive);
+}
+
 .nav-links {
   display: flex;
   gap: 32px;
@@ -205,19 +219,24 @@ body::before {
   white-space: nowrap;
 }
 
+/* --good-x-offset / --morning-x-offset are measured pixel corrections set
+   from HomePage.tsx (via getBoundingClientRect) that re-center each word
+   over the orb — the tilt/overlap offsets below are percentages of each
+   word's own rendered width, which shifts with text length and font size,
+   so they can't stay centered across screen sizes on their own. */
 .good-headline {
   margin-bottom: -0.12em;
-  transform: translateX(-30%) translateY(+30%) rotate(-10deg);
+  transform: translateX(-40%) translateY(-15%) rotate(0deg) translateX(var(--good-x-offset, 0px));
 }
 
 [data-mode="night"] .good-headline {
   margin-bottom: -0.12em;
-  transform: translateX(-45%) translateY(+15%) rotate(-13deg);
+  transform: translateX(-45%) translateY(+15%) rotate(-13deg) translateX(var(--good-x-offset, 0px));
 }
 
 
 .morning-headline {
-  transform: translateX(0%);
+  transform: translateX(var(--morning-x-offset, 0px));
   z-index: 1;
 }
 
@@ -337,9 +356,11 @@ body::before {
 .cal-title {
   font-family: var(--font-display);
   font-size: var(--text-page-header);
+  font-weight: bold;
   margin: 0;
   color: var(--headline-fill);
-  text-shadow: 2px 2px 0 var(--ink);
+  text-shadow: 3px 0px 0 var(--ink);
+  letter-spacing: 2px;
 }
 
 .cal-nav {
@@ -361,13 +382,13 @@ body::before {
 }
 
 .cal-nav-btn {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   font-size: 16px;
 }
 
 .cal-today-btn {
-  height: 36px;
+  height: 42px;
   padding: 0 14px;
   font-size: 14px;
   font-weight: 600;
@@ -405,13 +426,14 @@ body::before {
   border-radius: var(--radius-sm);
   background: var(--paper);
   border: 1px solid transparent;
-  padding: 8px;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
   cursor: pointer;
   transition: box-shadow 0.15s ease;
   box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
 }
 
 .cal-cell--outside {
@@ -423,10 +445,13 @@ body::before {
   border: 2px solid var(--ink);
 }
 
+/* Day number + journal dot keep the padding the whole cell used to have,
+   so stripes below can bleed edge-to-edge without extra wrapper markup. */
 .cal-cell-top {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  padding: 8px 8px 0;
 }
 
 .cal-day-num {
@@ -444,14 +469,96 @@ body::before {
   font-weight: 700;
 }
 
-.cal-cell-dots {
+.cal-cell-stripes {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: auto;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
 }
 
-/* Shared by grid-cell dots, the event-row dot, and the label-picker dot */
+/* Timed events (and any all-day event past the first) render as a
+   top-aligned stripe: solid accent bar on the left, light tint fill.
+   Tinted against white (not var(--paper)) so it still reads as its own
+   block when stacked on top of a solid-colored .cal-cell--filled cell. */
+.cal-stripe {
+  height: 18px;
+  line-height: 18px;
+  border-left: 3px solid transparent;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-stripe--overflow {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Set when an all-day event owns the whole cell background (see
+   .cal-cell-fill-label below for its label). */
+.cal-cell--filled {
+  border-color: transparent;
+}
+
+.cal-cell-fill-label {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: calc(100% - 16px);
+}
+
+/* Multiday event: a light tint behind the whole cell (skipped when
+   .cal-cell--filled already owns the background — see the JSX). */
+.cal-cell-multiday-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* .cal-cell-multiday-tint is position:absolute, which (per the stacking
+   spec) paints *above* plain in-flow content regardless of DOM order —
+   these need position:relative themselves so DOM order (tint first) is
+   what decides the stacking instead, keeping the tint behind them.
+   .cal-cell-fill-label is already position:absolute, so it's unaffected
+   and stacks by DOM order alone. */
+.cal-cell-top,
+.cal-cell-stripes {
+  position: relative;
+}
+
+/* The bottom multiday bar itself: a direct .cal-grid child placed via
+   explicit grid-column/grid-row (see the JSX), spanning every column the
+   event covers in that row — grid-column spanning includes the gutter
+   between cells, so it reads as one continuous bar rather than a chip per
+   cell. align-self pins it to the bottom of the (possibly taller) row;
+   position:relative keeps it painting above the .cal-cell cards beneath
+   it, since it comes later in DOM order among same-stacking-level
+   elements. pointer-events:none lets clicks fall through to the cell
+   underneath so the day panel still opens. */
+.cal-multiday-bar-segment {
+  position: relative;
+  align-self: end;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+/* Shared by the event-row dot and the label-picker dot */
 .cal-dot {
   width: 8px;
   height: 8px;
@@ -460,12 +567,37 @@ body::before {
   flex-shrink: 0;
 }
 
+/* Small pink heart marking a day with a journal/checkin entry, drawn from
+   two circles + a rotated square so it scales cleanly without an image asset. */
 .cal-journal-dot {
-  width: 8px;
+  position: relative;
+  width: 9px;
   height: 8px;
-  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.cal-journal-dot::before,
+.cal-journal-dot::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 5px;
+  height: 8px;
   background: var(--arrow-pink);
-  margin-top: 3px;
+  border-radius: 5px 5px 0 0;
+}
+
+.cal-journal-dot::before {
+  left: 4.5px;
+  transform: rotate(-45deg);
+  transform-origin: 0 100%;
+}
+
+.cal-journal-dot::after {
+  left: 0;
+  transform: rotate(45deg);
+  transform-origin: 100% 100%;
 }
 
 .cal-overlay {
@@ -576,6 +708,8 @@ body::before {
   cursor: pointer;
   color: var(--text-secondary);
   line-height: 1;
+  padding: 8px;
+  margin: -8px;
 }
 
 .cal-journal-card {
@@ -695,6 +829,8 @@ body::before {
   font-size: 15px;
   line-height: 1;
   flex-shrink: 0;
+  padding: 8px;
+  margin: -8px;
 }
 
 .cal-event-details {
@@ -704,12 +840,31 @@ body::before {
   gap: 4px;
 }
 
+.cal-event-details-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .cal-event-details-title {
   font-weight: 600;
   font-size: 14px;
   color: var(--text-primary);
   white-space: normal;
   word-break: break-word;
+}
+
+.cal-event-edit-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+  padding: 6px;
+  margin: -6px;
 }
 
 .cal-event-details-time,
@@ -774,6 +929,11 @@ body::before {
 .cal-field-label--block {
   display: block;
   margin-bottom: 8px;
+}
+
+.cal-field-hint {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .cal-input {
@@ -858,8 +1018,8 @@ body::before {
 }
 
 .cal-swatch {
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   border-radius: 999px;
   border: 2px solid transparent;
   cursor: pointer;
@@ -899,6 +1059,34 @@ body::before {
 .cal-add-event-btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.cal-event-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cal-event-edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.cal-event-edit-actions .cal-add-event-btn {
+  width: auto;
+  flex: 1;
+  height: 38px;
+}
+
+.cal-cancel-btn {
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 0 14px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  cursor: pointer;
 }
 
 /* Inbox Page */
@@ -1152,6 +1340,17 @@ body::before {
   }
 }
 
+/* Mobile swaps .cal-panel to a bottom sheet (see the 480px media query),
+   which needs to slide up rather than in from the side. */
+@keyframes panelInBottom {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
 @keyframes dialogIn {
   from {
     opacity: 0;
@@ -1183,6 +1382,18 @@ body::before {
     gap: 16px;
     font-size: 13px;
   }
+
+  .cal-page {
+    padding: 24px 16px 40px;
+  }
+
+  .cal-cell {
+    min-height: 84px;
+  }
+
+  .cal-panel {
+    padding: 20px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1190,8 +1401,27 @@ body::before {
     padding: 0 16px;
   }
 
+  .nav-hamburger {
+    display: flex;
+  }
+
+  /* Collapses into a dropdown panel anchored under the hamburger button;
+     .nav-bar's `position: fixed` already gives this a containing block. */
   .nav-links {
     display: none;
+    position: absolute;
+    top: var(--nav-height);
+    right: 16px;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--nav-bg);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+
+  .nav-links.open {
+    display: flex;
   }
 
   .side-arrows {
@@ -1206,7 +1436,207 @@ body::before {
     font-size: 16px;
   }
 
+  /* Orb section: the desktop --orb-size budget (85% of the viewport height)
+     leaves no headroom for the headline's overhang or the date stamp, so on
+     narrow screens it can push the date stamp below the fold. Shrink the
+     budget and let the date stamp flow after the orb (via .home-page's
+     existing flex column) instead of being absolutely pinned near the
+     bottom edge, so the two can never overlap or overflow the viewport. */
+  .home-page {
+    gap: 18px;
+    overflow: hidden;
+  }
+
+  .orb-container {
+    --orb-size: min(68vw, calc((100vh - var(--nav-height)) * 0.62));
+  }
+
   .date-stamp {
+    position: static;
+    font-size: 14px;
+  }
+
+  .cal-page {
+    padding: 16px 12px 32px;
+  }
+
+  .cal-header {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  /* Same trick as .cal-nav below: own line, full width, centered text. */
+  .cal-title {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Forces the nav row onto its own line below the title, then centers it
+     there — otherwise it'd sit flush left when the header wraps. */
+  .cal-nav {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .cal-nav-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 13px;
+  }
+
+  .cal-today-btn {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .cal-weekday-row,
+  .cal-grid {
+    gap: 4px;
+  }
+
+  .cal-cell {
+    min-height: 52px;
+  }
+
+  .cal-day-num {
+    font-size: 12px;
+  }
+
+  .cal-weekday {
+    font-size: 9px;
+    padding: 2px 0;
+  }
+
+  .cal-cell-stripes {
+    margin-top: 2px;
+  }
+
+  /* Keep the stripe's colored bar as a compact indicator; only the text
+     label is dropped once there's no room to render it legibly. */
+  .cal-stripe-label {
+    display: none;
+  }
+
+  .cal-stripe {
+    height: 8px;
+    padding: 0;
+  }
+
+  /* An empty label-less bar wouldn't read as anything useful here — the
+     day panel already lists every event, so just drop the "+N more" hint. */
+  .cal-stripe--overflow {
+    display: none;
+  }
+
+  /* All-day fill events already color the whole cell — the text label is
+     redundant at this size, so drop it like the other cell labels. */
+  .cal-cell-fill-label {
+    display: none;
+  }
+
+  .cal-multiday-bar-segment {
+    height: 10px;
+    padding: 0;
+  }
+
+  .cal-multiday-label {
+    display: none;
+  }
+
+  /* Bottom sheet instead of a right-side slide-in: easier to reach one-handed
+     and leaves the top of the screen visible as context. */
+  .cal-panel {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    max-height: 88vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    animation: panelInBottom 0.2s ease;
+    padding: 16px 16px max(16px, env(safe-area-inset-bottom)) 16px;
+  }
+
+  /* Inbox mobile layout: drop the desktop min-width so the page never forces
+     horizontal scrolling, let category labels wrap onto multiple lines
+     instead of scrolling, and stack each row's action buttons onto their
+     own full-width line so none of them get clipped. */
+  .iz-page {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .iz-header {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 14px 14px 10px;
+  }
+
+  .iz-title {
+    font-size: 21px;
+  }
+
+  .iz-tabs {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding: 0 14px 10px;
+    gap: 6px;
+  }
+
+  .iz-cat-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .iz-email-list {
+    padding: 0 10px 10px;
+  }
+
+  .iz-row {
+    flex-wrap: wrap;
+    padding: 10px;
+  }
+
+  .iz-email-content {
+    flex-basis: calc(100% - 44px);
+  }
+
+  /* Forces the actions onto their own full-width row below the sender/subject,
+     rather than squeezing four icon buttons into whatever space is left. */
+  .iz-row-actions {
+    flex-basis: 100%;
+    justify-content: flex-end;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--hairline);
+    gap: 4px;
+  }
+
+  .iz-icon-btn {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* Short viewports (phones in landscape, or a small browser window) aren't
+   caught by the max-width breakpoint above since width is plentiful there —
+   it's height that's tight. Same fix: shrink the orb budget and let the
+   date stamp flow after it instead of risking an absolute-positioned
+   overlap with less vertical room to work with. */
+@media (max-height: 480px) {
+  .home-page {
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  .orb-container {
+    --orb-size: min(40vh, calc((100vh - var(--nav-height)) * 0.6));
+  }
+
+  .date-stamp {
+    position: static;
     font-size: 14px;
   }
 }

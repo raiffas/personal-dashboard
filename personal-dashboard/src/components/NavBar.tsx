@@ -5,8 +5,6 @@ import type { NoteKind } from "./NotesDialog";
 
 type NavBarProps = {
   mode: "day" | "night";
-  queueDebugMode: boolean;
-  onToggleQueueDebug: () => void;
 };
 
 // The three scratchpads Ctrl+Alt+T cycles through, in rotation order.
@@ -16,10 +14,13 @@ const NOTE_DIALOGS: { kind: NoteKind; title: string }[] = [
   { kind: "todo", title: "reminders / todo" },
 ];
 
-function NavBar({ mode, queueDebugMode, onToggleQueueDebug }: NavBarProps) {
+function NavBar({ mode }: NavBarProps) {
   // null = no scratchpad dialog open; otherwise an index into NOTE_DIALOGS
   // for the one currently shown.
   const [activeNoteIndex, setActiveNoteIndex] = useState<number | null>(null);
+  // Controls the mobile dropdown (hamburger button below); irrelevant on
+  // desktop where the links render inline via CSS regardless of this value.
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Ctrl+Alt+T opens the notes scratchpad from anywhere in the app, and on
   // repeated presses rotates through notes -> tech notes -> reminders/todo
@@ -46,24 +47,28 @@ function NavBar({ mode, queueDebugMode, onToggleQueueDebug }: NavBarProps) {
         <div className="nav-logo" id="modeToggle" title="Day/night mode (automatic)">
           <span id="modeIcon">{mode === "day" ? "☀️" : "🌙"}</span>
         </div>
-        <Link to="/" className="nav-links">
-          <button className="nav-link active">Home</button>
-        </Link>
-        <Link to="/inbox" className="nav-links">
-          <button className="nav-link">Inbox</button>
-        </Link>
-        <Link to="/calendar" className="nav-links">
-          <button className="nav-link" data-page="/calendar">
-            Calendar
-          </button>
-        </Link>
+        {/* Only visible on mobile (CSS); toggles the dropdown below. */}
         <button
-          className={queueDebugMode ? "nav-link active" : "nav-link"}
-          title="Toggle visible inbox action queueing (debug)"
-          onClick={onToggleQueueDebug}
+          className="nav-hamburger"
+          aria-label="Toggle navigation menu"
+          onClick={() => setIsMobileMenuOpen((v) => !v)}
         >
-          Queue debug: {queueDebugMode ? "on" : "off"}
+          ☰
         </button>
+        <div className={isMobileMenuOpen ? "nav-links open" : "nav-links"}>
+          {/* Closing on click keeps the mobile dropdown from staying open after navigating. */}
+          <Link to="/" onClick={() => setIsMobileMenuOpen(false)}>
+            <button className="nav-link active">Home</button>
+          </Link>
+          <Link to="/inbox" onClick={() => setIsMobileMenuOpen(false)}>
+            <button className="nav-link">Inbox</button>
+          </Link>
+          <Link to="/calendar" onClick={() => setIsMobileMenuOpen(false)}>
+            <button className="nav-link" data-page="/calendar">
+              Calendar
+            </button>
+          </Link>
+        </div>
       </nav>
       <NotesDialog
         isOpen={activeNote !== null}

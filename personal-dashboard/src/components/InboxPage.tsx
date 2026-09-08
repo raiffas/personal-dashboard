@@ -67,12 +67,12 @@ const ACTION_LABELS: Record<ActionKind, string> = {
 
 const DEBOUNCE_MS = 1200;
 
-type InboxPageProps = {
-  debugQueueMode?: boolean;
-};
-
-const InboxPage = ({ debugQueueMode = false }: InboxPageProps) => {
+const InboxPage = () => {
   const [activeTab, setActiveTab] = useState("all");
+  // Toggles whether inbox actions (archive/trash/label) apply optimistically
+  // or wait on the real request — a dev aid, now owned locally by this page
+  // instead of being wired through NavBar.
+  const [debugQueueMode, setDebugQueueMode] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
   const [unreadError, setUnreadError] = useState<string | null>(null);
   const [emails, setEmails] = useState<Email[]>([]);
@@ -209,6 +209,13 @@ const InboxPage = ({ debugQueueMode = false }: InboxPageProps) => {
             </span>
           )}
         </div>
+        <button
+          className={debugQueueMode ? "nav-link active" : "nav-link"}
+          title="Toggle visible inbox action queueing (debug)"
+          onClick={() => setDebugQueueMode((v) => !v)}
+        >
+          Queue debug: {debugQueueMode ? "on" : "off"}
+        </button>
       </div>
 
       <div className="iz-tabs">

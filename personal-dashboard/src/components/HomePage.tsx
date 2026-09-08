@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "wouter";
 import sun from "../assets/sun_transparent.png";
 import moon from "../assets/moon-transparent.png";
@@ -43,6 +43,46 @@ const HomePage = ({ mode }: HomePageProps) => {
   const orbSrc = mode === "night" ? moon : sun;
   const morningLetters = makeArchedLetters(secondWordText, MORNING_CURVE_MAX_ROTATION, MORNING_CURVE_MAX_LIFT);
 
+  const orbContainerRef = useRef<HTMLDivElement>(null);
+  const goodRef = useRef<HTMLSpanElement>(null);
+  const morningRef = useRef<HTMLSpanElement>(null);
+  // Extra pixel nudge (on top of each word's existing tilt/overlap transform)
+  // that re-centers it over the orb. The tilt/overlap offsets in master.css
+  // are percentages of each word's own rendered width, which varies with
+  // text length and font size — that drifts at different orb sizes, so it
+  // can't be gotten right with CSS percentages alone. Instead we measure
+  // where each word actually lands post-transform and correct with a
+  // measured pixel delta, keeping the hand-lettered look intact everywhere.
+  const [xOffsets, setXOffsets] = useState({ good: 0, morning: 0 });
+
+  useLayoutEffect(() => {
+    function recenter() {
+      const container = orbContainerRef.current;
+      const good = goodRef.current;
+      const morning = morningRef.current;
+      if (!container || !good || !morning) return;
+
+      // Clear any previous correction and force a reflow before measuring,
+      // so each recompute starts from the words' natural (untranslated)
+      // position instead of compounding on the last correction.
+      good.style.setProperty("--good-x-offset", "0px");
+      morning.style.setProperty("--morning-x-offset", "0px");
+
+      const containerCenter = container.getBoundingClientRect().left + container.getBoundingClientRect().width / 2;
+      const goodRect = good.getBoundingClientRect();
+      const morningRect = morning.getBoundingClientRect();
+
+      setXOffsets({
+        good: containerCenter - (goodRect.left + goodRect.width / 2),
+        morning: containerCenter - (morningRect.left + morningRect.width / 2),
+      });
+    }
+
+    recenter();
+    window.addEventListener("resize", recenter);
+    return () => window.removeEventListener("resize", recenter);
+  }, [mode]);
+
   const dateText = new Date()
     .toLocaleDateString("en-US", {
       weekday: "long",
@@ -55,17 +95,33 @@ const HomePage = ({ mode }: HomePageProps) => {
 
   return (
     <div className="home-page">
-      <div className="orb-container" role="heading" aria-level={1} aria-label={`good ${secondWordText}`}>
+      <div
+        className="orb-container"
+        ref={orbContainerRef}
+        role="heading"
+        aria-level={1}
+        aria-label={`good ${secondWordText}`}
+      >
         <img src={orbSrc} alt="" className="orb" />
         <div className="headline-group">
-          <span className="good-headline" aria-hidden="true">
+          <span
+            className="good-headline"
+            aria-hidden="true"
+            ref={goodRef}
+            style={{ "--good-x-offset": `${xOffsets.good}px` } as CSSProperties}
+          >
             {goodLetters.map(({ char, rotation, lift }, i) => (
               <span key={i} className="arched-letter" style={archStyle(rotation, lift)}>
                 {char}
               </span>
             ))}
           </span>
-          <span className="morning-headline" aria-hidden="true">
+          <span
+            className="morning-headline"
+            aria-hidden="true"
+            ref={morningRef}
+            style={{ "--morning-x-offset": `${xOffsets.morning}px` } as CSSProperties}
+          >
             {morningLetters.map(({ char, rotation, lift }, i) => (
               <span key={i} className="arched-letter" style={archStyle(rotation, lift)}>
                 {char}
